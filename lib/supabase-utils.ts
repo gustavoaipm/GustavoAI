@@ -23,7 +23,8 @@ export const auth = {
       email,
       password,
       options: {
-        data: userData
+        data: userData,
+        emailRedirectTo: typeof window !== 'undefined' ? window.location.origin + '/auth/callback' : undefined
       }
     })
     
