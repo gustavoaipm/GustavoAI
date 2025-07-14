@@ -27,7 +27,38 @@ export const auth = {
       }
     })
     
-    if (error) throw error
+    if (error) {
+      console.error('Supabase signUp error:', error)
+      throw new Error(error.message || 'Registration failed')
+    }
+    
+    // Manually create user profile if auth signup succeeds
+    if (data.user) {
+      try {
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert({
+            id: data.user.id,
+            email: data.user.email!,
+            first_name: userData.first_name,
+            last_name: userData.last_name,
+            phone: userData.phone || null,
+            role: userData.role || 'LANDLORD'
+          })
+        
+        if (profileError) {
+          console.error('Profile creation error:', profileError)
+          // Don't throw here - auth succeeded, profile creation failed
+          // User can still sign in and we can retry profile creation later
+        } else {
+          console.log('User profile created successfully')
+        }
+      } catch (profileError) {
+        console.error('Profile creation failed:', profileError)
+        // Don't throw here - auth succeeded, profile creation failed
+      }
+    }
+    
     return data
   },
 
@@ -67,8 +98,44 @@ export const auth = {
       .eq('id', user.id)
       .single()
 
-    if (profileError) throw profileError
+    if (profileError) {
+      console.error('Profile fetch error:', profileError)
+      // If profile doesn't exist, try to create it from auth user data
+      if (profileError.code === 'PGRST116') { // No rows returned
+        return await auth.createProfileFromAuthUser(user)
+      }
+      throw profileError
+    }
     return profile
+  },
+
+  // Create profile from auth user data
+  createProfileFromAuthUser: async (authUser: any) => {
+    try {
+      const userData = authUser.user_metadata || {}
+      const { data: profile, error } = await supabase
+        .from('users')
+        .insert({
+          id: authUser.id,
+          email: authUser.email!,
+          first_name: userData.first_name || '',
+          last_name: userData.last_name || '',
+          phone: userData.phone || null,
+          role: userData.role || 'LANDLORD'
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Profile creation from auth user failed:', error)
+        return null
+      }
+
+      return profile
+    } catch (error) {
+      console.error('Profile creation from auth user error:', error)
+      return null
+    }
   },
 
   // Update user profile

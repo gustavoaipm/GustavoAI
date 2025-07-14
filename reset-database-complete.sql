@@ -1,7 +1,53 @@
--- Enable necessary extensions
+-- Complete Database Reset for GustavoAI
+-- WARNING: This will delete ALL data in your Supabase project
+-- Run this in your Supabase SQL Editor
+
+-- 1. Disable all triggers first (including any existing ones)
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP TRIGGER IF EXISTS update_users_updated_at ON public.users;
+DROP TRIGGER IF EXISTS update_properties_updated_at ON public.properties;
+DROP TRIGGER IF EXISTS update_tenants_updated_at ON public.tenants;
+DROP TRIGGER IF EXISTS update_payments_updated_at ON public.payments;
+DROP TRIGGER IF EXISTS update_maintenance_updated_at ON public.maintenance;
+DROP TRIGGER IF EXISTS update_vendors_updated_at ON public.vendors;
+DROP TRIGGER IF EXISTS update_ai_conversations_updated_at ON public.ai_conversations;
+DROP TRIGGER IF EXISTS update_calendar_integrations_updated_at ON public.calendar_integrations;
+DROP TRIGGER IF EXISTS update_scheduled_events_updated_at ON public.scheduled_events;
+DROP TRIGGER IF EXISTS update_scheduling_requests_updated_at ON public.scheduling_requests;
+
+-- 2. Drop all functions with CASCADE to handle dependencies
+DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
+DROP FUNCTION IF EXISTS public.update_updated_at_column() CASCADE;
+
+-- 3. Drop all tables (in correct order due to foreign keys) - including any existing ones
+DROP TABLE IF EXISTS public.notifications CASCADE;
+DROP TABLE IF EXISTS public.maintenance CASCADE;
+DROP TABLE IF EXISTS public.payments CASCADE;
+DROP TABLE IF EXISTS public.tenants CASCADE;
+DROP TABLE IF EXISTS public.properties CASCADE;
+DROP TABLE IF EXISTS public.vendors CASCADE;
+DROP TABLE IF EXISTS public.users CASCADE;
+DROP TABLE IF EXISTS public.ai_conversations CASCADE;
+DROP TABLE IF EXISTS public.calendar_integrations CASCADE;
+DROP TABLE IF EXISTS public.scheduled_events CASCADE;
+DROP TABLE IF EXISTS public.scheduling_requests CASCADE;
+
+-- 4. Drop all custom types/enums
+DROP TYPE IF EXISTS user_role CASCADE;
+DROP TYPE IF EXISTS property_type CASCADE;
+DROP TYPE IF EXISTS property_status CASCADE;
+DROP TYPE IF EXISTS tenant_status CASCADE;
+DROP TYPE IF EXISTS payment_type CASCADE;
+DROP TYPE IF EXISTS payment_status CASCADE;
+DROP TYPE IF EXISTS maintenance_type CASCADE;
+DROP TYPE IF EXISTS priority CASCADE;
+DROP TYPE IF EXISTS maintenance_status CASCADE;
+DROP TYPE IF EXISTS notification_type CASCADE;
+
+-- 5. Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Create custom types/enums
+-- 6. Recreate all custom types/enums
 CREATE TYPE user_role AS ENUM ('LANDLORD', 'TENANT', 'ADMIN');
 CREATE TYPE property_type AS ENUM ('APARTMENT', 'HOUSE', 'CONDO', 'TOWNHOUSE', 'COMMERCIAL');
 CREATE TYPE property_status AS ENUM ('AVAILABLE', 'OCCUPIED', 'MAINTENANCE', 'UNAVAILABLE');
@@ -13,7 +59,7 @@ CREATE TYPE priority AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'URGENT');
 CREATE TYPE maintenance_status AS ENUM ('REQUESTED', 'SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');
 CREATE TYPE notification_type AS ENUM ('PAYMENT_DUE', 'PAYMENT_OVERDUE', 'MAINTENANCE_SCHEDULED', 'MAINTENANCE_COMPLETED', 'LEASE_EXPIRING', 'GENERAL');
 
--- Create users table (extends Supabase auth.users)
+-- 7. Create users table
 CREATE TABLE public.users (
     id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
@@ -25,7 +71,7 @@ CREATE TABLE public.users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create properties table
+-- 8. Create properties table
 CREATE TABLE public.properties (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     name TEXT NOT NULL,
@@ -46,7 +92,7 @@ CREATE TABLE public.properties (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create tenants table
+-- 9. Create tenants table
 CREATE TABLE public.tenants (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
@@ -67,7 +113,7 @@ CREATE TABLE public.tenants (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create payments table
+-- 10. Create payments table
 CREATE TABLE public.payments (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     amount DECIMAL(10,2) NOT NULL,
@@ -85,7 +131,7 @@ CREATE TABLE public.payments (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create maintenance table
+-- 11. Create maintenance table
 CREATE TABLE public.maintenance (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     title TEXT NOT NULL,
@@ -108,7 +154,7 @@ CREATE TABLE public.maintenance (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create notifications table
+-- 12. Create notifications table
 CREATE TABLE public.notifications (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     title TEXT NOT NULL,
@@ -119,7 +165,7 @@ CREATE TABLE public.notifications (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create vendors table
+-- 13. Create vendors table
 CREATE TABLE public.vendors (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     name TEXT NOT NULL,
@@ -136,7 +182,7 @@ CREATE TABLE public.vendors (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create indexes for better performance
+-- 14. Create indexes for better performance
 CREATE INDEX idx_properties_owner_id ON public.properties(owner_id);
 CREATE INDEX idx_tenants_property_id ON public.tenants(property_id);
 CREATE INDEX idx_tenants_landlord_id ON public.tenants(landlord_id);
@@ -148,7 +194,7 @@ CREATE INDEX idx_maintenance_status ON public.maintenance(status);
 CREATE INDEX idx_notifications_user_id ON public.notifications(user_id);
 CREATE INDEX idx_notifications_is_read ON public.notifications(is_read);
 
--- Create updated_at trigger function
+-- 15. Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -157,7 +203,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Create triggers for updated_at
+-- 16. Create triggers for updated_at
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON public.users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_properties_updated_at BEFORE UPDATE ON public.properties FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_tenants_updated_at BEFORE UPDATE ON public.tenants FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -165,9 +211,7 @@ CREATE TRIGGER update_payments_updated_at BEFORE UPDATE ON public.payments FOR E
 CREATE TRIGGER update_maintenance_updated_at BEFORE UPDATE ON public.maintenance FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_vendors_updated_at BEFORE UPDATE ON public.vendors FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Row Level Security (RLS) policies
-
--- Enable RLS on all tables
+-- 17. Enable Row Level Security (RLS) on all tables
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.properties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
@@ -176,6 +220,7 @@ ALTER TABLE public.maintenance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vendors ENABLE ROW LEVEL SECURITY;
 
+-- 18. Create RLS policies
 -- Users policies
 CREATE POLICY "Users can view their own profile" ON public.users
     FOR SELECT USING (auth.uid() = id);
@@ -185,9 +230,6 @@ CREATE POLICY "Users can update their own profile" ON public.users
 
 CREATE POLICY "Users can insert their own profile" ON public.users
     FOR INSERT WITH CHECK (auth.uid() = id);
-
-CREATE POLICY "Allow trigger function to insert user profiles" ON public.users
-    FOR INSERT WITH CHECK (true);
 
 -- Properties policies
 CREATE POLICY "Landlords can view their own properties" ON public.properties
@@ -248,14 +290,15 @@ CREATE POLICY "Users can view their own notifications" ON public.notifications
 CREATE POLICY "Users can update their own notifications" ON public.notifications
     FOR UPDATE USING (auth.uid() = user_id);
 
--- Vendors policies (read-only for now, can be expanded)
+-- Vendors policies (read-only for now)
 CREATE POLICY "Anyone can view vendors" ON public.vendors
     FOR SELECT USING (true);
 
--- Create function to handle user creation
+-- 19. Create robust user creation trigger function
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
+    -- Try to create profile
     INSERT INTO public.users (id, email, first_name, last_name, phone, role)
     VALUES (
         NEW.id,
@@ -265,11 +308,20 @@ BEGIN
         COALESCE(NEW.raw_user_meta_data->>'phone', NULL),
         COALESCE((NEW.raw_user_meta_data->>'role')::user_role, 'LANDLORD')
     );
+    
     RETURN NEW;
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Log the error but don't fail the auth
+        RAISE LOG 'Profile creation failed for user %: %', NEW.id, SQLERRM;
+        RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Create trigger for new user creation
+-- 20. Create trigger for new user creation
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
-    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user(); 
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 21. Verify the setup
+SELECT 'Database reset completed successfully!' as status; 

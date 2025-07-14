@@ -187,12 +187,9 @@ const { data, error } = await supabase
 - **Real-time security**: All data access is validated in real-time
 - **Built-in protection**: SQL injection protection, XSS prevention, and more
 
-## 🧪 Testing
+## 🔧 Development
 
 ```bash
-# Frontend tests
-npm run test
-
 # Type checking
 npm run type-check
 

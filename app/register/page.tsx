@@ -1,22 +1,27 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
+import { EyeIcon, EyeSlashIcon, CheckCircleIcon, XCircleIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { useAuth } from '@/lib/auth-context'
 
 const registerSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain at least one uppercase letter, one lowercase letter, and one number'),
   confirmPassword: z.string(),
-  firstName: z.string().min(2, 'First name must be at least 2 characters'),
-  lastName: z.string().min(2, 'Last name must be at least 2 characters'),
+  firstName: z.string().min(2, 'First name must be at least 2 characters').max(50, 'First name must be less than 50 characters'),
+  lastName: z.string().min(2, 'Last name must be at least 2 characters').max(50, 'Last name must be less than 50 characters'),
   phone: z.string().optional(),
   role: z.enum(['LANDLORD', 'TENANT']).default('LANDLORD'),
+  acceptTerms: z.boolean().refine((val) => val === true, {
+    message: 'You must accept the terms of service',
+  }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -29,20 +34,46 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [passwordStrength, setPasswordStrength] = useState({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+  })
   const router = useRouter()
   const { signUp } = useAuth()
 
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
   })
 
+  const watchedPassword = watch('password', '')
+
+  // Check password strength
+  const checkPasswordStrength = (password: string) => {
+    setPasswordStrength({
+      length: password.length >= 8,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      number: /\d/.test(password),
+    })
+  }
+
+  // Watch password changes
+  useEffect(() => {
+    checkPasswordStrength(watchedPassword)
+  }, [watchedPassword])
+
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true)
     setError('')
+    setSuccess('')
 
     try {
       await signUp(data.email, data.password, {
@@ -52,10 +83,33 @@ export default function RegisterPage() {
         role: data.role,
       })
 
-      // Redirect to login page with success message
-      router.push('/login?message=Registration successful! Please check your email to verify your account.')
+      setSuccess('Registration successful! Please check your email to verify your account before signing in.')
+      
+      // Clear form after successful registration
+      setTimeout(() => {
+        router.push('/login?message=Registration successful! Please check your email to verify your account.')
+      }, 2000)
     } catch (err: any) {
-      setError(err.message || 'Registration failed. Please try again.')
+      console.error('Registration error:', err)
+      
+      // Provide more specific error messages
+      let errorMessage = 'Registration failed. Please try again.'
+      
+      if (err.message) {
+        if (err.message.includes('already registered')) {
+          errorMessage = 'An account with this email already exists. Please try signing in instead.'
+        } else if (err.message.includes('invalid email')) {
+          errorMessage = 'Please enter a valid email address.'
+        } else if (err.message.includes('password')) {
+          errorMessage = 'Password must be at least 8 characters with uppercase, lowercase, and number.'
+        } else if (err.message.includes('network') || err.message.includes('fetch')) {
+          errorMessage = 'Network error. Please check your internet connection and try again.'
+        } else {
+          errorMessage = err.message
+        }
+      }
+      
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -86,6 +140,12 @@ export default function RegisterPage() {
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
                 {error}
+              </div>
+            )}
+
+            {success && (
+              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+                {success}
               </div>
             )}
 
@@ -195,6 +255,55 @@ export default function RegisterPage() {
               {errors.password && (
                 <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
               )}
+
+              {/* Password strength indicator */}
+              {watchedPassword && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-gray-600">Password requirements:</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center text-xs">
+                      {passwordStrength.length ? (
+                        <CheckCircleIcon className="h-3 w-3 text-green-500 mr-1" />
+                      ) : (
+                        <XCircleIcon className="h-3 w-3 text-red-500 mr-1" />
+                      )}
+                      <span className={passwordStrength.length ? 'text-green-600' : 'text-red-600'}>
+                        At least 8 characters
+                      </span>
+                    </div>
+                    <div className="flex items-center text-xs">
+                      {passwordStrength.uppercase ? (
+                        <CheckCircleIcon className="h-3 w-3 text-green-500 mr-1" />
+                      ) : (
+                        <XCircleIcon className="h-3 w-3 text-red-500 mr-1" />
+                      )}
+                      <span className={passwordStrength.uppercase ? 'text-green-600' : 'text-red-600'}>
+                        One uppercase letter
+                      </span>
+                    </div>
+                    <div className="flex items-center text-xs">
+                      {passwordStrength.lowercase ? (
+                        <CheckCircleIcon className="h-3 w-3 text-green-500 mr-1" />
+                      ) : (
+                        <XCircleIcon className="h-3 w-3 text-red-500 mr-1" />
+                      )}
+                      <span className={passwordStrength.lowercase ? 'text-green-600' : 'text-red-600'}>
+                        One lowercase letter
+                      </span>
+                    </div>
+                    <div className="flex items-center text-xs">
+                      {passwordStrength.number ? (
+                        <CheckCircleIcon className="h-3 w-3 text-green-500 mr-1" />
+                      ) : (
+                        <XCircleIcon className="h-3 w-3 text-red-500 mr-1" />
+                      )}
+                      <span className={passwordStrength.number ? 'text-green-600' : 'text-red-600'}>
+                        One number
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
@@ -226,12 +335,41 @@ export default function RegisterPage() {
               )}
             </div>
 
+            <div className="flex items-start">
+              <div className="flex items-center h-5">
+                <input
+                  {...register('acceptTerms')}
+                  id="acceptTerms"
+                  type="checkbox"
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                />
+              </div>
+              <div className="ml-3 text-sm">
+                <label htmlFor="acceptTerms" className="text-gray-700">
+                  I agree to the{' '}
+                  <Link href="/terms" className="text-primary-600 hover:text-primary-500">
+                    Terms of Service
+                  </Link>{' '}
+                  and{' '}
+                  <Link href="/privacy" className="text-primary-600 hover:text-primary-500">
+                    Privacy Policy
+                  </Link>
+                </label>
+                {errors.acceptTerms && (
+                  <p className="mt-1 text-sm text-red-600">{errors.acceptTerms.message}</p>
+                )}
+              </div>
+            </div>
+
             <div>
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full btn-primary py-3 text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full btn-primary py-3 text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
+                {isLoading && (
+                  <ArrowPathIcon className="animate-spin -ml-1 mr-3 h-5 w-5" />
+                )}
                 {isLoading ? 'Creating account...' : 'Create account'}
               </button>
             </div>
