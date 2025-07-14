@@ -7,8 +7,8 @@ import {
   CurrencyDollarIcon,
   HomeIcon,
   UserGroupIcon,
-  TrendingUpIcon,
-  TrendingDownIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon,
   CalendarIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
@@ -334,9 +334,9 @@ export default function AnalyticsPage() {
                 <div className="text-xs text-gray-500">of {formatCurrency(trend.rentDue)}</div>
                 <div className="mt-2">
                   {trend.rentCollected >= trend.rentDue ? (
-                    <TrendingUpIcon className="h-4 w-4 text-green-600 mx-auto" />
+                    <ArrowTrendingUpIcon className="h-4 w-4 text-green-600 mx-auto" />
                   ) : (
-                    <TrendingDownIcon className="h-4 w-4 text-red-600 mx-auto" />
+                    <ArrowTrendingDownIcon className="h-4 w-4 text-red-600 mx-auto" />
                   )}
                 </div>
               </div>
