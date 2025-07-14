@@ -1,0 +1,254 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  phone     String?
+  role      UserRole @default(LANDLORD)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  properties    Property[]
+  tenants       Tenant[]
+  maintenance   Maintenance[]
+  payments      Payment[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Property {
+  id          String   @id @default(cuid())
+  name        String
+  address     String
+  city        String
+  state       String
+  zipCode     String
+  propertyType PropertyType
+  bedrooms    Int
+  bathrooms   Int
+  squareFeet  Int?
+  rentAmount  Decimal  @db.Decimal(10, 2)
+  status      PropertyStatus @default(AVAILABLE)
+  description String?
+  images      String[] // URLs to property images
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  ownerId     String
+  owner       User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tenants     Tenant[]
+  maintenance Maintenance[]
+  payments    Payment[]
+
+  @@map("properties")
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  firstName String
+  lastName  String
+  phone     String
+  dateOfBirth DateTime?
+  emergencyContact String?
+  emergencyPhone   String?
+  status    TenantStatus @default(ACTIVE)
+  leaseStart DateTime
+  leaseEnd   DateTime
+  rentAmount Decimal  @db.Decimal(10, 2)
+  securityDeposit Decimal @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  landlordId String
+  landlord   User     @relation(fields: [landlordId], references: [id], onDelete: Cascade)
+  payments   Payment[]
+  maintenance Maintenance[]
+
+  @@map("tenants")
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  amount      Decimal  @db.Decimal(10, 2)
+  type        PaymentType
+  status      PaymentStatus @default(PENDING)
+  dueDate     DateTime
+  paidDate    DateTime?
+  lateFee     Decimal  @db.Decimal(10, 2) @default(0)
+  description String?
+  stripePaymentId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  landlordId  String
+  landlord    User     @relation(fields: [landlordId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model Maintenance {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  type        MaintenanceType
+  priority    Priority @default(MEDIUM)
+  status      MaintenanceStatus @default(REQUESTED)
+  scheduledDate DateTime?
+  completedDate DateTime?
+  cost        Decimal? @db.Decimal(10, 2)
+  vendorName  String?
+  vendorPhone String?
+  vendorEmail String?
+  notes       String?
+  images      String[] // URLs to maintenance images
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenantId    String?
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  assignedToId String?
+  assignedTo  User?    @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@map("maintenance")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  title     String
+  message   String
+  type      NotificationType
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relations
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Vendor {
+  id          String   @id @default(cuid())
+  name        String
+  email       String?
+  phone       String
+  services    String[] // Array of services offered
+  rating      Float?   @default(0)
+  isVerified  Boolean  @default(false)
+  address     String?
+  city        String?
+  state       String?
+  zipCode     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("vendors")
+}
+
+// Enums
+enum UserRole {
+  LANDLORD
+  TENANT
+  ADMIN
+}
+
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  CONDO
+  TOWNHOUSE
+  COMMERCIAL
+}
+
+enum PropertyStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+  UNAVAILABLE
+}
+
+enum TenantStatus {
+  ACTIVE
+  INACTIVE
+  EVICTED
+  MOVED_OUT
+}
+
+enum PaymentType {
+  RENT
+  SECURITY_DEPOSIT
+  LATE_FEE
+  MAINTENANCE_FEE
+  UTILITY_FEE
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum MaintenanceType {
+  CLEANING
+  REPAIR
+  INSPECTION
+  PEST_CONTROL
+  HVAC
+  PLUMBING
+  ELECTRICAL
+  LANDSCAPING
+  OTHER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MaintenanceStatus {
+  REQUESTED
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum NotificationType {
+  PAYMENT_DUE
+  PAYMENT_OVERDUE
+  MAINTENANCE_SCHEDULED
+  MAINTENANCE_COMPLETED
+  LEASE_EXPIRING
+  GENERAL
+} 
