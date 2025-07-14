@@ -13,7 +13,6 @@ build/
 .env
 .env.local
 .env.development.local
-.env.test.local
 .env.production.local
 
 # Vercel
@@ -49,11 +48,6 @@ coverage/
 
 # nyc test coverage
 .nyc_output
-
-# Jest
-.jest/
-coverage/
-*.lcov
 
 # Dependency directories
 jspm_packages/
