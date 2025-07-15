@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { 
   HomeIcon, 
+  BuildingOfficeIcon,
   UserGroupIcon, 
   CalendarIcon, 
   CurrencyDollarIcon,
@@ -36,7 +37,7 @@ export default function DashboardNav() {
     {
       name: 'Properties',
       href: '/dashboard/properties',
-      icon: HomeIcon,
+      icon: BuildingOfficeIcon,
     },
     {
       name: 'Tenants',
@@ -81,7 +82,7 @@ export default function DashboardNav() {
               </Link>
             </div>
             <div className="hidden md:block ml-10">
-              <div className="flex space-x-8">
+              <div className="flex space-x-4">
                 {navItems.map((item) => {
                   const isActive = pathname === item.href
                   return (
@@ -104,7 +105,7 @@ export default function DashboardNav() {
           </div>
           <div className="flex items-center space-x-4">
             <div className="text-sm text-gray-700">
-              Welcome, {user?.first_name} {user?.last_name}
+              Welcome, {user?.first_name}
             </div>
             <button
               onClick={handleSignOut}

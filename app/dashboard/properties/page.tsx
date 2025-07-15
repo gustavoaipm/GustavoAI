@@ -10,9 +10,11 @@ import {
   TrashIcon,
   MapPinIcon,
   CurrencyDollarIcon,
-  UsersIcon
+  UsersIcon,
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline'
 import { useAuth } from '@/lib/auth-context'
+import DashboardNav from '@/app/components/DashboardNav'
 
 interface Property {
   id: string
@@ -21,11 +23,36 @@ interface Property {
   city: string
   state: string
   propertyType: string
+  totalUnits: number
+  status: string
+  description: string | null
+  images: string[]
+  units: Unit[]
+}
+
+interface Unit {
+  id: string
+  unitNumber: string
   bedrooms: number
   bathrooms: number
+  squareFeet: number | null
   rentAmount: number
   status: string
-  images: string[]
+  description: string | null
+  tenants: Tenant[]
+  maintenance: Maintenance[]
+}
+
+interface Tenant {
+  id: string
+  firstName: string
+  lastName: string
+  status: string
+}
+
+interface Maintenance {
+  id: string
+  status: string
 }
 
 export default function PropertiesPage() {
@@ -55,7 +82,7 @@ export default function PropertiesPage() {
       })
       if (response.ok) {
         const data = await response.json()
-        setProperties(data)
+        setProperties(data.properties || data)
       }
     } catch (error) {
       console.error('Error fetching properties:', error)
@@ -81,6 +108,8 @@ export default function PropertiesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <DashboardNav />
+      
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -110,19 +139,19 @@ export default function PropertiesPage() {
           </div>
           <div className="card text-center">
             <div className="text-3xl font-bold text-green-600">
-              {properties.filter(p => p.status === 'OCCUPIED').length}
+              {properties.reduce((sum, p) => sum + p.units.filter(u => u.status === 'OCCUPIED').length, 0)}
             </div>
-            <div className="text-gray-600">Occupied</div>
+            <div className="text-gray-600">Occupied Units</div>
           </div>
           <div className="card text-center">
             <div className="text-3xl font-bold text-yellow-600">
-              {properties.filter(p => p.status === 'AVAILABLE').length}
+              {properties.reduce((sum, p) => sum + p.units.filter(u => u.status === 'AVAILABLE').length, 0)}
             </div>
-            <div className="text-gray-600">Available</div>
+            <div className="text-gray-600">Available Units</div>
           </div>
           <div className="card text-center">
             <div className="text-3xl font-bold text-purple-600">
-              ${properties.reduce((sum, p) => sum + p.rentAmount, 0).toLocaleString()}
+              ${properties.reduce((sum, p) => sum + p.units.reduce((unitSum, u) => unitSum + u.rentAmount, 0), 0).toLocaleString()}
             </div>
             <div className="text-gray-600">Total Monthly Rent</div>
           </div>
@@ -165,9 +194,9 @@ export default function PropertiesPage() {
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="text-lg font-semibold text-gray-900">{property.name}</h3>
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      property.status === 'OCCUPIED' ? 'bg-green-100 text-green-800' :
-                      property.status === 'AVAILABLE' ? 'bg-blue-100 text-blue-800' :
-                      'bg-gray-100 text-gray-800'
+                      property.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
+                      property.status === 'INACTIVE' ? 'bg-gray-100 text-gray-800' :
+                      'bg-yellow-100 text-yellow-800'
                     }`}>
                       {property.status}
                     </span>
@@ -184,17 +213,19 @@ export default function PropertiesPage() {
                       <div className="font-medium">{property.propertyType}</div>
                     </div>
                     <div className="text-sm">
-                      <span className="text-gray-500">Bedrooms:</span>
-                      <div className="font-medium">{property.bedrooms}</div>
+                      <span className="text-gray-500">Units:</span>
+                      <div className="font-medium">{property.totalUnits}</div>
                     </div>
                     <div className="text-sm">
-                      <span className="text-gray-500">Bathrooms:</span>
-                      <div className="font-medium">{property.bathrooms}</div>
-                    </div>
-                    <div className="text-sm">
-                      <span className="text-gray-500">Rent:</span>
+                      <span className="text-gray-500">Available:</span>
                       <div className="font-medium text-green-600">
-                        ${property.rentAmount.toLocaleString()}
+                        {property.units.filter(u => u.status === 'AVAILABLE').length}/{property.totalUnits}
+                      </div>
+                    </div>
+                    <div className="text-sm">
+                      <span className="text-gray-500">Total Rent:</span>
+                      <div className="font-medium text-green-600">
+                        ${property.units.reduce((sum, u) => sum + u.rentAmount, 0).toLocaleString()}
                       </div>
                     </div>
                   </div>

@@ -11,7 +11,14 @@ router.get('/', async (req: any, res, next) => {
     const properties = await prisma.property.findMany({
       where: { ownerId: req.user.id },
       include: {
-        tenants: true,
+        units: {
+          include: {
+            tenants: true,
+            maintenance: {
+              where: { status: { not: 'COMPLETED' } }
+            }
+          }
+        },
         maintenance: {
           where: { status: { not: 'COMPLETED' } }
         }
@@ -35,11 +42,16 @@ router.get('/:id', async (req: any, res, next) => {
         ownerId: req.user.id 
       },
       include: {
-        tenants: true,
-        maintenance: true,
-        payments: {
-          include: { tenant: true }
-        }
+        units: {
+          include: {
+            tenants: true,
+            maintenance: true,
+            payments: {
+              include: { tenant: true }
+            }
+          }
+        },
+        maintenance: true
       }
     });
 
@@ -63,11 +75,9 @@ router.post('/', [
   body('state').trim().notEmpty(),
   body('zipCode').trim().notEmpty(),
   body('propertyType').isIn(['APARTMENT', 'HOUSE', 'CONDO', 'TOWNHOUSE', 'COMMERCIAL']),
-  body('bedrooms').isInt({ min: 0 }),
-  body('bathrooms').isInt({ min: 0 }),
-  body('squareFeet').optional().isInt({ min: 0 }),
-  body('rentAmount').isFloat({ min: 0 }),
-  body('description').optional().trim()
+  body('totalUnits').isInt({ min: 1 }),
+  body('description').optional().trim(),
+  body('units').isArray().optional()
 ], async (req: any, res, next) => {
   try {
     const errors = validationResult(req);
@@ -85,11 +95,9 @@ router.post('/', [
       state,
       zipCode,
       propertyType,
-      bedrooms,
-      bathrooms,
-      squareFeet,
-      rentAmount,
-      description
+      totalUnits,
+      description,
+      units
     } = req.body;
 
     const property = await prisma.property.create({
@@ -100,18 +108,36 @@ router.post('/', [
         state,
         zipCode,
         propertyType,
-        bedrooms,
-        bathrooms,
-        squareFeet,
-        rentAmount: parseFloat(rentAmount),
+        totalUnits,
         description,
         ownerId: req.user.id
       }
     });
 
+    // If units are provided, create them
+    if (units && Array.isArray(units)) {
+      for (const unitData of units) {
+        await prisma.unit.create({
+          data: {
+            ...unitData,
+            propertyId: property.id,
+            rentAmount: parseFloat(unitData.rentAmount)
+          }
+        });
+      }
+    }
+
+    // Fetch the property with units
+    const propertyWithUnits = await prisma.property.findUnique({
+      where: { id: property.id },
+      include: {
+        units: true
+      }
+    });
+
     res.status(201).json({ 
       message: 'Property created successfully',
-      property 
+      property: propertyWithUnits
     });
   } catch (error) {
     next(error);
@@ -126,10 +152,7 @@ router.put('/:id', [
   body('state').optional().trim().notEmpty(),
   body('zipCode').optional().trim().notEmpty(),
   body('propertyType').optional().isIn(['APARTMENT', 'HOUSE', 'CONDO', 'TOWNHOUSE', 'COMMERCIAL']),
-  body('bedrooms').optional().isInt({ min: 0 }),
-  body('bathrooms').optional().isInt({ min: 0 }),
-  body('squareFeet').optional().isInt({ min: 0 }),
-  body('rentAmount').optional().isFloat({ min: 0 }),
+  body('totalUnits').optional().isInt({ min: 1 }),
   body('description').optional().trim()
 ], async (req: any, res, next) => {
   try {
@@ -158,9 +181,6 @@ router.put('/:id', [
     }
 
     const updateData = { ...req.body };
-    if (updateData.rentAmount) {
-      updateData.rentAmount = parseFloat(updateData.rentAmount);
-    }
 
     const property = await prisma.property.update({
       where: { id },

@@ -11,9 +11,11 @@ import {
   PhoneIcon,
   EnvelopeIcon,
   CalendarIcon,
-  CurrencyDollarIcon
+  CurrencyDollarIcon,
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline'
 import { useAuth } from '@/lib/auth-context'
+import DashboardNav from '@/app/components/DashboardNav'
 
 interface Tenant {
   id: string
@@ -25,9 +27,12 @@ interface Tenant {
   leaseStart: string
   leaseEnd: string
   rentAmount: number
-  property: {
-    name: string
-    address: string
+  unit: {
+    unitNumber: string
+    property: {
+      name: string
+      address: string
+    }
   }
 }
 
@@ -103,6 +108,8 @@ export default function TenantsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <DashboardNav />
+      
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -212,8 +219,8 @@ export default function TenantsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{tenant.property.name}</div>
-                        <div className="text-sm text-gray-500">{tenant.property.address}</div>
+                        <div className="text-sm text-gray-900">{tenant.unit.property.name}</div>
+                        <div className="text-sm text-gray-500">Unit {tenant.unit.unitNumber} • {tenant.unit.property.address}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center text-sm text-gray-900">

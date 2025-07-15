@@ -10,9 +10,11 @@ import {
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
   CalendarIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline'
 import { useAuth } from '@/lib/auth-context'
+import DashboardNav from '@/app/components/DashboardNav'
 
 interface AnalyticsData {
   totalProperties: number
@@ -145,6 +147,8 @@ export default function AnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <DashboardNav />
+      
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

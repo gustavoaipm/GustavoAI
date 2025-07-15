@@ -8,6 +8,7 @@ import { PrismaClient } from '@prisma/client';
 // Import routes
 import authRoutes from './routes/auth';
 import propertyRoutes from './routes/properties';
+import unitRoutes from './routes/units';
 import tenantRoutes from './routes/tenants';
 import paymentRoutes from './routes/payments';
 import maintenanceRoutes from './routes/maintenance';
@@ -49,6 +50,7 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/properties', authMiddleware, propertyRoutes);
+app.use('/api/units', authMiddleware, unitRoutes);
 app.use('/api/tenants', authMiddleware, tenantRoutes);
 app.use('/api/payments', authMiddleware, paymentRoutes);
 app.use('/api/maintenance', authMiddleware, maintenanceRoutes);
