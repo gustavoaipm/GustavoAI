@@ -139,7 +139,7 @@ export default function AddPropertyPage() {
     const unitToDuplicate = units[0] // Use the first unit as template
     const unitsToAdd = formData.totalUnits - units.length
     
-    const newUnits = []
+    const newUnits: UnitFormData[] = []
     for (let i = 0; i < unitsToAdd; i++) {
       newUnits.push({
         unitNumber: `${units.length + i + 1}`,

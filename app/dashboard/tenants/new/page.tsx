@@ -109,7 +109,7 @@ export default function AddTenantPage() {
         setSelectedUnit(unit)
         setFormData(prev => ({
           ...prev,
-          unitId: value,
+          unitId: String(value),
           rentAmount: unit.rentAmount
         }))
       }

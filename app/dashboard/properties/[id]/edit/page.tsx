@@ -116,7 +116,7 @@ export default function EditPropertyPage() {
 
         // Set units if they exist
         if (property.units && property.units.length > 0) {
-          setUnits(property.units.map(unit => ({
+          setUnits(property.units.map((unit: any) => ({
             unitNumber: unit.unitNumber,
             bedrooms: unit.bedrooms,
             bathrooms: unit.bathrooms,
@@ -183,7 +183,7 @@ export default function EditPropertyPage() {
     const unitToDuplicate = units[0] // Use the first unit as template
     const unitsToAdd = formData.totalUnits - units.length
     
-    const newUnits = []
+    const newUnits: UnitFormData[] = []
     for (let i = 0; i < unitsToAdd; i++) {
       newUnits.push({
         unitNumber: `${units.length + i + 1}`,
@@ -241,8 +241,7 @@ export default function EditPropertyPage() {
         },
         body: JSON.stringify({
           ...formData,
-          squareFeet: formData.squareFeet || null,
-          rentAmount: parseFloat(formData.rentAmount.toString())
+          units
         })
       })
 
@@ -418,78 +417,72 @@ export default function EditPropertyPage() {
           <div className="card">
             <div className="flex items-center mb-6">
               <HomeIcon className="h-6 w-6 text-primary-600 mr-3" />
-              <h2 className="text-xl font-semibold text-gray-900">Property Details</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Unit Details</h2>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div>
-                <label htmlFor="bedrooms" className="block text-sm font-medium text-gray-700 mb-2">
-                  Bedrooms *
-                </label>
-                <input
-                  type="number"
-                  id="bedrooms"
-                  required
-                  min="0"
-                  value={formData.bedrooms}
-                  onChange={(e) => handleInputChange('bedrooms', parseInt(e.target.value))}
-                  className="form-input"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="bathrooms" className="block text-sm font-medium text-gray-700 mb-2">
-                  Bathrooms *
-                </label>
-                <input
-                  type="number"
-                  id="bathrooms"
-                  required
-                  min="0"
-                  step="0.5"
-                  value={formData.bathrooms}
-                  onChange={(e) => handleInputChange('bathrooms', parseFloat(e.target.value))}
-                  className="form-input"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="squareFeet" className="block text-sm font-medium text-gray-700 mb-2">
-                  Square Feet
-                </label>
-                <input
-                  type="number"
-                  id="squareFeet"
-                  min="0"
-                  value={formData.squareFeet}
-                  onChange={(e) => handleInputChange('squareFeet', e.target.value ? parseInt(e.target.value) : '')}
-                  className="form-input"
-                  placeholder="1200"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="rentAmount" className="block text-sm font-medium text-gray-700 mb-2">
-                  Monthly Rent *
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <CurrencyDollarIcon className="h-5 w-5 text-gray-400" />
-                  </div>
+            {units.map((unit, idx) => (
+              <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-4 p-4 border rounded">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Bedrooms *
+                  </label>
                   <input
                     type="number"
-                    id="rentAmount"
                     required
                     min="0"
-                    step="0.01"
-                    value={formData.rentAmount}
-                    onChange={(e) => handleInputChange('rentAmount', e.target.value ? parseFloat(e.target.value) : '')}
-                    className="form-input pl-10"
-                    placeholder="1500.00"
+                    value={unit.bedrooms}
+                    onChange={e => handleUnitChange(idx, 'bedrooms', parseInt(e.target.value))}
+                    className="form-input"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Bathrooms *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    step="0.5"
+                    value={unit.bathrooms}
+                    onChange={e => handleUnitChange(idx, 'bathrooms', parseFloat(e.target.value))}
+                    className="form-input"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Square Feet
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={unit.squareFeet}
+                    onChange={e => handleUnitChange(idx, 'squareFeet', e.target.value ? parseInt(e.target.value) : '')}
+                    className="form-input"
+                    placeholder="1200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Monthly Rent *
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <CurrencyDollarIcon className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      step="0.01"
+                      value={unit.rentAmount}
+                      onChange={e => handleUnitChange(idx, 'rentAmount', e.target.value ? parseFloat(e.target.value) : '')}
+                      className="form-input pl-10"
+                      placeholder="1500.00"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
 
           {/* Description */}
