@@ -2,33 +2,33 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
+import { tenants } from '@/lib/supabase-utils'
+import DashboardNav from '@/app/components/DashboardNav'
 import { 
   PlusIcon, 
   UserGroupIcon, 
-  EyeIcon, 
-  PencilIcon, 
-  TrashIcon,
-  PhoneIcon,
-  EnvelopeIcon,
-  CalendarIcon,
+  EnvelopeIcon, 
+  PhoneIcon, 
+  CalendarIcon, 
   CurrencyDollarIcon,
-  ArrowLeftIcon
+  EyeIcon,
+  PencilIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline'
-import { useAuth } from '@/lib/auth-context'
-import DashboardNav from '@/app/components/DashboardNav'
 
 interface Tenant {
   id: string
-  firstName: string
-  lastName: string
+  first_name: string
+  last_name: string
   email: string
   phone: string
   status: string
-  leaseStart: string
-  leaseEnd: string
-  rentAmount: number
+  lease_start: string
+  lease_end: string
+  rent_amount: number
   unit: {
-    unitNumber: string
+    unit_number: string
     property: {
       name: string
       address: string
@@ -39,14 +39,8 @@ interface Tenant {
 export default function TenantsPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
-  const [tenants, setTenants] = useState<Tenant[]>([])
+  const [tenantsList, setTenants] = useState<Tenant[]>([])
   const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login')
-    }
-  }, [user, loading, router])
 
   useEffect(() => {
     if (user) {
@@ -56,15 +50,8 @@ export default function TenantsPage() {
 
   const fetchTenants = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tenants`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setTenants(data)
-      }
+      const data = await tenants.getAll()
+      setTenants(data)
     } catch (error) {
       console.error('Error fetching tenants:', error)
     } finally {
@@ -89,6 +76,19 @@ export default function TenantsPage() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString()
+  }
+
+  const handleDeleteTenant = async (tenantId: string) => {
+    if (!confirm('Are you sure you want to delete this tenant? This action cannot be undone.')) {
+      return
+    }
+    try {
+      await tenants.delete(tenantId)
+      await fetchTenants()
+    } catch (error) {
+      console.error('Error deleting tenant:', error)
+      alert('Failed to delete tenant')
+    }
   }
 
   if (loading || isLoading) {
@@ -118,13 +118,22 @@ export default function TenantsPage() {
               <h1 className="text-3xl font-bold text-gray-900">Tenants</h1>
               <p className="mt-2 text-gray-600">Manage your tenant relationships</p>
             </div>
-            <button
-              onClick={() => router.push('/dashboard/tenants/new')}
-              className="btn-primary flex items-center"
-            >
-              <PlusIcon className="h-5 w-5 mr-2" />
-              Add Tenant
-            </button>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => router.push('/dashboard/tenants/invitations')}
+                className="btn-outline flex items-center"
+              >
+                <EnvelopeIcon className="h-5 w-5 mr-2" />
+                View Invitations
+              </button>
+              <button
+                onClick={() => router.push('/dashboard/tenants/new')}
+                className="btn-primary flex items-center"
+              >
+                <PlusIcon className="h-5 w-5 mr-2" />
+                Add Tenant
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -134,31 +143,31 @@ export default function TenantsPage() {
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="card text-center">
-            <div className="text-3xl font-bold text-primary-600">{tenants.length}</div>
+            <div className="text-3xl font-bold text-primary-600">{tenantsList.length}</div>
             <div className="text-gray-600">Total Tenants</div>
           </div>
           <div className="card text-center">
             <div className="text-3xl font-bold text-green-600">
-              {tenants.filter(t => t.status === 'ACTIVE').length}
+              {tenantsList.filter(t => t.status === 'ACTIVE').length}
             </div>
             <div className="text-gray-600">Active Tenants</div>
           </div>
           <div className="card text-center">
             <div className="text-3xl font-bold text-yellow-600">
-              {tenants.filter(t => t.status === 'MOVED_OUT').length}
+              {tenantsList.filter(t => t.status === 'MOVED_OUT').length}
             </div>
             <div className="text-gray-600">Moved Out</div>
           </div>
           <div className="card text-center">
             <div className="text-3xl font-bold text-purple-600">
-              ${tenants.reduce((sum, t) => sum + t.rentAmount, 0).toLocaleString()}
+              ${tenantsList.reduce((sum, t) => sum + t.rent_amount, 0).toLocaleString()}
             </div>
             <div className="text-gray-600">Total Monthly Rent</div>
           </div>
         </div>
 
         {/* Tenants List */}
-        {tenants.length === 0 ? (
+        {tenantsList.length === 0 ? (
           <div className="text-center py-12">
             <UserGroupIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No tenants yet</h3>
@@ -200,27 +209,29 @@ export default function TenantsPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {tenants.map((tenant) => (
+                  {tenantsList.map((tenant) => (
                     <tr key={tenant.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10">
                             <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
                               <span className="text-sm font-medium text-primary-600">
-                                {tenant.firstName[0]}{tenant.lastName[0]}
+                                {tenant.first_name[0]}{tenant.last_name[0]}
                               </span>
                             </div>
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
-                              {tenant.firstName} {tenant.lastName}
+                              {tenant.first_name} {tenant.last_name}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{tenant.unit.property.name}</div>
-                        <div className="text-sm text-gray-500">Unit {tenant.unit.unitNumber} • {tenant.unit.property.address}</div>
+                        <div className="text-sm text-gray-900">{tenant.unit?.property?.name || 'N/A'}</div>
+                        <div className="text-sm text-gray-500">
+                          {tenant.unit?.unit_number ? `Unit ${tenant.unit.unit_number} - ` : ''}{tenant.unit?.property?.address || 'N/A'}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center text-sm text-gray-900">
@@ -236,14 +247,14 @@ export default function TenantsPage() {
                         <div className="text-sm text-gray-900">
                           <div className="flex items-center">
                             <CalendarIcon className="h-4 w-4 mr-1" />
-                            {formatDate(tenant.leaseStart)} - {formatDate(tenant.leaseEnd)}
+                            {formatDate(tenant.lease_start)} - {formatDate(tenant.lease_end)}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center text-sm text-gray-900">
                           <CurrencyDollarIcon className="h-4 w-4 mr-1" />
-                          ${tenant.rentAmount.toLocaleString()}
+                          ${tenant.rent_amount.toLocaleString()}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -255,18 +266,21 @@ export default function TenantsPage() {
                         <div className="flex space-x-2">
                           <button
                             onClick={() => router.push(`/dashboard/tenants/${tenant.id}`)}
-                            className="btn-secondary text-xs"
+                            className="text-primary-600 hover:text-primary-900"
                           >
-                            <EyeIcon className="h-4 w-4 mr-1" />
-                            View
+                            <EyeIcon className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => router.push(`/dashboard/tenants/${tenant.id}/edit`)}
-                            className="btn-outline text-xs"
+                            className="text-gray-600 hover:text-gray-900"
                           >
                             <PencilIcon className="h-4 w-4" />
                           </button>
-                          <button className="btn-outline text-red-600 hover:bg-red-50 text-xs">
+                          <button
+                            onClick={() => handleDeleteTenant(tenant.id)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Delete Tenant"
+                          >
                             <TrashIcon className="h-4 w-4" />
                           </button>
                         </div>

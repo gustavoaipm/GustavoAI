@@ -2,14 +2,24 @@ import { Router } from 'express';
 import { body, validationResult } from 'express-validator';
 import { prisma } from '../index';
 import { createError } from '../middleware/errorHandler';
+import { Request, Response, NextFunction } from 'express';
+
+// Extend Request to include user
+interface AuthRequest extends Request {
+  user: {
+    id: string;
+    // add other user properties if needed
+  };
+}
 
 const router = Router();
 
 // Get all properties for the authenticated user
-router.get('/', async (req: any, res, next) => {
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const user = (req as AuthRequest).user;
     const properties = await prisma.property.findMany({
-      where: { ownerId: req.user.id },
+      where: { ownerId: user.id },
       include: {
         units: {
           include: {
@@ -24,22 +34,21 @@ router.get('/', async (req: any, res, next) => {
         }
       }
     });
-
-    res.json({ properties });
+    return res.json({ properties });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
 // Get single property
-router.get('/:id', async (req: any, res, next) => {
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const user = (req as AuthRequest).user;
     const { id } = req.params;
-
     const property = await prisma.property.findFirst({
       where: { 
         id,
-        ownerId: req.user.id 
+        ownerId: user.id 
       },
       include: {
         units: {
@@ -54,16 +63,14 @@ router.get('/:id', async (req: any, res, next) => {
         maintenance: true
       }
     });
-
     if (!property) {
       return res.status(404).json({ 
         error: 'Property not found' 
       });
     }
-
-    res.json({ property });
+    return res.json({ property });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -78,8 +85,9 @@ router.post('/', [
   body('totalUnits').isInt({ min: 1 }),
   body('description').optional().trim(),
   body('units').isArray().optional()
-], async (req: any, res, next) => {
+], async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const user = (req as AuthRequest).user;
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ 
@@ -87,7 +95,6 @@ router.post('/', [
         details: errors.array() 
       });
     }
-
     const {
       name,
       address,
@@ -99,7 +106,6 @@ router.post('/', [
       description,
       units
     } = req.body;
-
     const property = await prisma.property.create({
       data: {
         name,
@@ -110,10 +116,9 @@ router.post('/', [
         propertyType,
         totalUnits,
         description,
-        ownerId: req.user.id
+        ownerId: user.id
       }
     });
-
     // If units are provided, create them
     if (units && Array.isArray(units)) {
       for (const unitData of units) {
@@ -126,7 +131,6 @@ router.post('/', [
         });
       }
     }
-
     // Fetch the property with units
     const propertyWithUnits = await prisma.property.findUnique({
       where: { id: property.id },
@@ -134,13 +138,12 @@ router.post('/', [
         units: true
       }
     });
-
-    res.status(201).json({ 
+    return res.status(201).json({ 
       message: 'Property created successfully',
       property: propertyWithUnits
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -154,8 +157,9 @@ router.put('/:id', [
   body('propertyType').optional().isIn(['APARTMENT', 'HOUSE', 'CONDO', 'TOWNHOUSE', 'COMMERCIAL']),
   body('totalUnits').optional().isInt({ min: 1 }),
   body('description').optional().trim()
-], async (req: any, res, next) => {
+], async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const user = (req as AuthRequest).user;
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ 
@@ -163,67 +167,59 @@ router.put('/:id', [
         details: errors.array() 
       });
     }
-
     const { id } = req.params;
-
     // Check if property exists and belongs to user
     const existingProperty = await prisma.property.findFirst({
       where: { 
         id,
-        ownerId: req.user.id 
+        ownerId: user.id 
       }
     });
-
     if (!existingProperty) {
       return res.status(404).json({ 
         error: 'Property not found' 
       });
     }
-
     const updateData = { ...req.body };
-
     const property = await prisma.property.update({
       where: { id },
       data: updateData
     });
-
-    res.json({ 
+    return res.json({ 
       message: 'Property updated successfully',
       property 
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
 // Delete property
-router.delete('/:id', async (req: any, res, next) => {
+router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const user = (req as AuthRequest).user;
     const { id } = req.params;
-
     // Check if property exists and belongs to user
-    const property = await prisma.property.findFirst({
+    const existingProperty = await prisma.property.findFirst({
       where: { 
         id,
-        ownerId: req.user.id 
+        ownerId: user.id 
       }
     });
-
-    if (!property) {
+    if (!existingProperty) {
       return res.status(404).json({ 
         error: 'Property not found' 
       });
     }
-
+    // Delete property and related units, maintenance, etc. (if cascading is set up)
     await prisma.property.delete({
       where: { id }
     });
-
-    res.json({ 
+    return res.json({ 
       message: 'Property deleted successfully' 
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 

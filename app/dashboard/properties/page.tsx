@@ -2,19 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
+import { properties } from '@/lib/supabase-utils'
+import DashboardNav from '@/app/components/DashboardNav'
 import { 
-  PlusIcon, 
   HomeIcon, 
+  MapPinIcon, 
+  PlusIcon, 
   EyeIcon, 
   PencilIcon, 
-  TrashIcon,
-  MapPinIcon,
-  CurrencyDollarIcon,
-  UsersIcon,
-  ArrowLeftIcon
+  TrashIcon 
 } from '@heroicons/react/24/outline'
-import { useAuth } from '@/lib/auth-context'
-import DashboardNav from '@/app/components/DashboardNav'
 
 interface Property {
   id: string
@@ -22,8 +20,8 @@ interface Property {
   address: string
   city: string
   state: string
-  propertyType: string
-  totalUnits: number
+  property_type: string
+  total_units: number
   status: string
   description: string | null
   images: string[]
@@ -32,11 +30,11 @@ interface Property {
 
 interface Unit {
   id: string
-  unitNumber: string
+  unit_number: string
   bedrooms: number
   bathrooms: number
-  squareFeet: number | null
-  rentAmount: number
+  square_feet: number | null
+  rent_amount: number
   status: string
   description: string | null
   tenants: Tenant[]
@@ -45,8 +43,8 @@ interface Unit {
 
 interface Tenant {
   id: string
-  firstName: string
-  lastName: string
+  first_name: string
+  last_name: string
   status: string
 }
 
@@ -58,7 +56,7 @@ interface Maintenance {
 export default function PropertiesPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
-  const [properties, setProperties] = useState<Property[]>([])
+  const [propertiesList, setPropertiesList] = useState<Property[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -75,15 +73,8 @@ export default function PropertiesPage() {
 
   const fetchProperties = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/properties`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setProperties(data.properties || data)
-      }
+      const data = await properties.getAll()
+      setPropertiesList(data || [])
     } catch (error) {
       console.error('Error fetching properties:', error)
     } finally {
@@ -134,31 +125,31 @@ export default function PropertiesPage() {
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="card text-center">
-            <div className="text-3xl font-bold text-primary-600">{properties.length}</div>
+            <div className="text-3xl font-bold text-primary-600">{propertiesList.length}</div>
             <div className="text-gray-600">Total Properties</div>
           </div>
           <div className="card text-center">
             <div className="text-3xl font-bold text-green-600">
-              {properties.reduce((sum, p) => sum + p.units.filter(u => u.status === 'OCCUPIED').length, 0)}
+              {propertiesList.reduce((sum, p) => sum + (p.units?.filter(u => u.status === 'OCCUPIED').length || 0), 0)}
             </div>
             <div className="text-gray-600">Occupied Units</div>
           </div>
           <div className="card text-center">
             <div className="text-3xl font-bold text-yellow-600">
-              {properties.reduce((sum, p) => sum + p.units.filter(u => u.status === 'AVAILABLE').length, 0)}
+              {propertiesList.reduce((sum, p) => sum + (p.units?.filter(u => u.status === 'AVAILABLE').length || 0), 0)}
             </div>
             <div className="text-gray-600">Available Units</div>
           </div>
           <div className="card text-center">
             <div className="text-3xl font-bold text-purple-600">
-              ${properties.reduce((sum, p) => sum + p.units.reduce((unitSum, u) => unitSum + u.rentAmount, 0), 0).toLocaleString()}
+              ${propertiesList.reduce((sum, p) => sum + (p.units?.reduce((unitSum, u) => unitSum + u.rent_amount, 0) || 0), 0).toLocaleString()}
             </div>
             <div className="text-gray-600">Total Monthly Rent</div>
           </div>
         </div>
 
         {/* Properties Grid */}
-        {properties.length === 0 ? (
+        {propertiesList.length === 0 ? (
           <div className="text-center py-12">
             <HomeIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No properties yet</h3>
@@ -172,7 +163,7 @@ export default function PropertiesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {properties.map((property) => (
+            {propertiesList.map((property) => (
               <div key={property.id} className="card hover:shadow-lg transition-shadow">
                 {/* Property Image */}
                 <div className="aspect-video bg-gray-200 rounded-t-lg overflow-hidden">
@@ -210,22 +201,22 @@ export default function PropertiesPage() {
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div className="text-sm">
                       <span className="text-gray-500">Type:</span>
-                      <div className="font-medium">{property.propertyType}</div>
+                      <div className="font-medium">{property.property_type}</div>
                     </div>
                     <div className="text-sm">
                       <span className="text-gray-500">Units:</span>
-                      <div className="font-medium">{property.totalUnits}</div>
+                      <div className="font-medium">{property.units?.length || 0}</div>
                     </div>
                     <div className="text-sm">
                       <span className="text-gray-500">Available:</span>
                       <div className="font-medium text-green-600">
-                        {property.units.filter(u => u.status === 'AVAILABLE').length}/{property.totalUnits}
+                        {property.units?.filter(u => u.status === 'AVAILABLE').length || 0}/{property.units?.length || 0}
                       </div>
                     </div>
                     <div className="text-sm">
                       <span className="text-gray-500">Total Rent:</span>
                       <div className="font-medium text-green-600">
-                        ${property.units.reduce((sum, u) => sum + u.rentAmount, 0).toLocaleString()}
+                        ${(property.units?.reduce((sum, u) => sum + u.rent_amount, 0) || 0).toLocaleString()}
                       </div>
                     </div>
                   </div>

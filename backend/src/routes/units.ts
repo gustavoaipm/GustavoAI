@@ -2,19 +2,29 @@ import { Router } from 'express';
 import { body, validationResult } from 'express-validator';
 import { prisma } from '../index';
 import { createError } from '../middleware/errorHandler';
+import { Request, Response, NextFunction } from 'express';
+
+// Extend Request to include user
+interface AuthRequest extends Request {
+  user: {
+    id: string;
+    // add other user properties if needed
+  };
+}
 
 const router = Router();
 
 // Get all units for a property
-router.get('/property/:propertyId', async (req: any, res, next) => {
+router.get('/property/:propertyId', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const user = (req as AuthRequest).user;
     const { propertyId } = req.params;
 
     // Verify the property belongs to the user
     const property = await prisma.property.findFirst({
       where: { 
         id: propertyId,
-        ownerId: req.user.id 
+        ownerId: user.id 
       }
     });
 
@@ -34,22 +44,23 @@ router.get('/property/:propertyId', async (req: any, res, next) => {
       }
     });
 
-    res.json({ units });
+    return res.json({ units });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
 // Get single unit
-router.get('/:id', async (req: any, res, next) => {
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const user = (req as AuthRequest).user;
     const { id } = req.params;
 
     const unit = await prisma.unit.findFirst({
       where: { 
         id,
         property: {
-          ownerId: req.user.id
+          ownerId: user.id
         }
       },
       include: {
@@ -68,9 +79,9 @@ router.get('/:id', async (req: any, res, next) => {
       });
     }
 
-    res.json({ unit });
+    return res.json({ unit });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -83,8 +94,9 @@ router.post('/', [
   body('squareFeet').optional().isInt({ min: 0 }),
   body('rentAmount').isFloat({ min: 0 }),
   body('description').optional().trim()
-], async (req: any, res, next) => {
+], async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const user = (req as AuthRequest).user;
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ 
@@ -107,7 +119,7 @@ router.post('/', [
     const property = await prisma.property.findFirst({
       where: { 
         id: propertyId,
-        ownerId: req.user.id 
+        ownerId: user.id 
       }
     });
 
@@ -143,12 +155,12 @@ router.post('/', [
       }
     });
 
-    res.status(201).json({ 
+    return res.status(201).json({ 
       message: 'Unit created successfully',
       unit 
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -161,8 +173,9 @@ router.put('/:id', [
   body('rentAmount').optional().isFloat({ min: 0 }),
   body('description').optional().trim(),
   body('status').optional().isIn(['AVAILABLE', 'OCCUPIED', 'MAINTENANCE', 'UNAVAILABLE', 'RESERVED'])
-], async (req: any, res, next) => {
+], async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const user = (req as AuthRequest).user;
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ 
@@ -178,7 +191,7 @@ router.put('/:id', [
       where: { 
         id,
         property: {
-          ownerId: req.user.id
+          ownerId: user.id
         }
       }
     });
@@ -216,31 +229,32 @@ router.put('/:id', [
       data: updateData
     });
 
-    res.json({ 
+    return res.json({ 
       message: 'Unit updated successfully',
       unit 
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
 // Delete unit
-router.delete('/:id', async (req: any, res, next) => {
+router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const user = (req as AuthRequest).user;
     const { id } = req.params;
 
     // Check if unit exists and belongs to user's property
-    const unit = await prisma.unit.findFirst({
+    const existingUnit = await prisma.unit.findFirst({
       where: { 
         id,
         property: {
-          ownerId: req.user.id
+          ownerId: user.id
         }
       }
     });
 
-    if (!unit) {
+    if (!existingUnit) {
       return res.status(404).json({ 
         error: 'Unit not found' 
       });
@@ -264,11 +278,11 @@ router.delete('/:id', async (req: any, res, next) => {
       where: { id }
     });
 
-    res.json({ 
+    return res.json({ 
       message: 'Unit deleted successfully' 
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 

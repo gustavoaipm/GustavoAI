@@ -1,325 +1,193 @@
-'use client'
+"use client"
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { 
-  PlusIcon, 
-  WrenchScrewdriverIcon, 
-  EyeIcon, 
-  PencilIcon, 
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
+import { maintenance } from "@/lib/supabase-utils"
+import DashboardNav from "@/app/components/DashboardNav"
+import {
+  PlusIcon,
+  WrenchScrewdriverIcon,
+  EyeIcon,
+  PencilIcon,
   TrashIcon,
   CalendarIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
   ClockIcon,
   UserIcon,
-  ArrowLeftIcon
-} from '@heroicons/react/24/outline'
-import { useAuth } from '@/lib/auth-context'
-import DashboardNav from '@/app/components/DashboardNav'
+  ArrowLeftIcon,
+} from "@heroicons/react/24/outline"
 
-interface Maintenance {
-  id: string
-  title: string
-  description: string
-  type: string
-  priority: string
-  status: string
-  scheduledDate?: string
-  completedDate?: string
-  cost?: number
-  vendorName?: string
-  property: {
-    name: string
-    address: string
-  }
-  tenant?: {
-    firstName: string
-    lastName: string
-  }
+const STATUS_COLORS: Record<string, string> = {
+  PENDING: "bg-yellow-100 text-yellow-800",
+  SCHEDULED: "bg-blue-100 text-blue-800",
+  IN_PROGRESS: "bg-orange-100 text-orange-800",
+  COMPLETED: "bg-green-100 text-green-800",
+  DECLINED: "bg-red-100 text-red-800",
 }
 
 export default function MaintenancePage() {
   const { user, loading } = useAuth()
   const router = useRouter()
-  const [maintenance, setMaintenance] = useState<Maintenance[]>([])
+  const [requests, setRequests] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [filter, setFilter] = useState('all')
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login')
-    }
-  }, [user, loading, router])
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) {
-      fetchMaintenance()
+      fetchRequests()
     }
   }, [user])
 
-  const fetchMaintenance = async () => {
+  const fetchRequests = async () => {
+    setIsLoading(true)
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/maintenance`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setMaintenance(data)
-      }
+      const data = await maintenance.getAll()
+      setRequests(data)
     } catch (error) {
-      console.error('Error fetching maintenance:', error)
+      console.error("Error fetching maintenance requests:", error)
     } finally {
       setIsLoading(false)
     }
   }
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'URGENT':
-        return 'bg-red-100 text-red-800'
-      case 'HIGH':
-        return 'bg-orange-100 text-orange-800'
-      case 'MEDIUM':
-        return 'bg-yellow-100 text-yellow-800'
-      case 'LOW':
-        return 'bg-green-100 text-green-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
-    }
-  }
+  const filteredRequests =
+    statusFilter === "all"
+      ? requests
+      : requests.filter((r) => r.status === statusFilter)
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'COMPLETED':
-        return 'bg-green-100 text-green-800'
-      case 'IN_PROGRESS':
-        return 'bg-blue-100 text-blue-800'
-      case 'SCHEDULED':
-        return 'bg-purple-100 text-purple-800'
-      case 'REQUESTED':
-        return 'bg-yellow-100 text-yellow-800'
-      case 'CANCELLED':
-        return 'bg-gray-100 text-gray-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'COMPLETED':
-        return <CheckCircleIcon className="h-5 w-5 text-green-600" />
-      case 'IN_PROGRESS':
-        return <WrenchScrewdriverIcon className="h-5 w-5 text-blue-600" />
-      case 'SCHEDULED':
-        return <CalendarIcon className="h-5 w-5 text-purple-600" />
-      case 'REQUESTED':
-        return <ClockIcon className="h-5 w-5 text-yellow-600" />
-      case 'CANCELLED':
-        return <ExclamationTriangleIcon className="h-5 w-5 text-gray-600" />
-      default:
-        return <ClockIcon className="h-5 w-5 text-gray-600" />
-    }
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString()
-  }
-
-  const formatCurrency = (amount?: number) => {
-    if (!amount) return 'N/A'
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount)
-  }
-
-  const filteredMaintenance = maintenance.filter(item => {
-    if (filter === 'all') return true
-    return item.status === filter.toUpperCase()
-  })
-
-  const urgentCount = maintenance.filter(m => m.priority === 'URGENT').length
-  const pendingCount = maintenance.filter(m => m.status === 'REQUESTED').length
-  const inProgressCount = maintenance.filter(m => m.status === 'IN_PROGRESS').length
-  const completedCount = maintenance.filter(m => m.status === 'COMPLETED').length
-
-  if (loading || isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading maintenance requests...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return null
-  }
+  const statusOptions = [
+    "all",
+    "PENDING",
+    "SCHEDULED",
+    "IN_PROGRESS",
+    "COMPLETED",
+    "DECLINED",
+  ]
 
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardNav />
-      
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Maintenance</h1>
-              <p className="mt-2 text-gray-600">Manage maintenance requests and scheduling</p>
-            </div>
-            <button
-              onClick={() => router.push('/dashboard/maintenance/new')}
-              className="btn-primary flex items-center"
-            >
-              <PlusIcon className="h-5 w-5 mr-2" />
-              New Request
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="card text-center">
-            <div className="text-3xl font-bold text-red-600">{urgentCount}</div>
-            <div className="text-gray-600">Urgent Requests</div>
-          </div>
-          <div className="card text-center">
-            <div className="text-3xl font-bold text-yellow-600">{pendingCount}</div>
-            <div className="text-gray-600">Pending Requests</div>
-          </div>
-          <div className="card text-center">
-            <div className="text-3xl font-bold text-blue-600">{inProgressCount}</div>
-            <div className="text-gray-600">In Progress</div>
-          </div>
-          <div className="card text-center">
-            <div className="text-3xl font-bold text-green-600">{completedCount}</div>
-            <div className="text-gray-600">Completed</div>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="mb-6">
-          <div className="flex space-x-2">
-            {['all', 'requested', 'scheduled', 'in_progress', 'completed'].map((filterOption) => (
-              <button
-                key={filterOption}
-                onClick={() => setFilter(filterOption)}
-                className={`px-4 py-2 rounded-md text-sm font-medium ${
-                  filter === filterOption
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-                }`}
-              >
-                {filterOption.replace('_', ' ').charAt(0).toUpperCase() + filterOption.replace('_', ' ').slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Maintenance List */}
-        {filteredMaintenance.length === 0 ? (
-          <div className="text-center py-12">
-            <WrenchScrewdriverIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No maintenance requests</h3>
-            <p className="text-gray-600 mb-6">
-              {filter === 'all' 
-                ? 'No maintenance requests yet. Create your first request to get started.'
-                : `No ${filter.replace('_', ' ')} requests found.`
-              }
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Maintenance Requests</h1>
+            <p className="mt-2 text-gray-600">
+              View and manage all maintenance requests for your properties
             </p>
-            {filter === 'all' && (
-              <button
-                onClick={() => router.push('/dashboard/maintenance/new')}
-                className="btn-primary"
-              >
-                Create First Request
-              </button>
-            )}
           </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {filteredMaintenance.map((item) => (
-              <div key={item.id} className="card hover:shadow-lg transition-shadow">
-                <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">{item.title}</h3>
-                  <div className="flex space-x-2">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(item.priority)}`}>
-                      {item.priority}
-                    </span>
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(item.status)}`}>
-                      {item.status.replace('_', ' ')}
-                    </span>
-                  </div>
-                </div>
-
-                <p className="text-gray-600 mb-4 line-clamp-2">{item.description}</p>
-
-                <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                  <div>
-                    <span className="text-gray-500">Type:</span>
-                    <div className="font-medium capitalize">{item.type.replace('_', ' ')}</div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Property:</span>
-                    <div className="font-medium">{item.property.name}</div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Tenant:</span>
-                    <div className="font-medium">
-                      {item.tenant ? `${item.tenant.firstName} ${item.tenant.lastName}` : 'N/A'}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Cost:</span>
-                    <div className="font-medium">{formatCurrency(item.cost)}</div>
-                  </div>
-                </div>
-
-                {item.scheduledDate && (
-                  <div className="flex items-center text-sm text-gray-600 mb-4">
-                    <CalendarIcon className="h-4 w-4 mr-1" />
-                    Scheduled: {formatDate(item.scheduledDate)}
-                  </div>
-                )}
-
-                {item.vendorName && (
-                  <div className="text-sm text-gray-600 mb-4">
-                    <span className="font-medium">Vendor:</span> {item.vendorName}
-                  </div>
-                )}
-
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => router.push(`/dashboard/maintenance/${item.id}`)}
-                    className="flex-1 btn-secondary flex items-center justify-center"
-                  >
-                    <EyeIcon className="h-4 w-4 mr-1" />
-                    View Details
-                  </button>
-                  <button
-                    onClick={() => router.push(`/dashboard/maintenance/${item.id}/edit`)}
-                    className="btn-outline"
-                  >
-                    <PencilIcon className="h-4 w-4" />
-                  </button>
-                  <button className="btn-outline text-red-600 hover:bg-red-50">
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
+          <button
+            onClick={() => router.push('/dashboard/maintenance/new')}
+            className="btn-primary flex items-center"
+          >
+            <PlusIcon className="h-5 w-5 mr-2" />
+            New Request
+          </button>
+        </div>
+        <div className="mb-4 flex items-center space-x-4">
+          <label className="text-sm font-medium text-gray-700">Status:</label>
+          <select
+            className="form-select"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            {statusOptions.map((status) => (
+              <option key={status} value={status}>
+                {status.charAt(0) + status.slice(1).toLowerCase()}
+              </option>
             ))}
-          </div>
-        )}
+          </select>
+        </div>
+        <div className="bg-white shadow rounded-lg overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead>
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Description
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Property / Unit
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Vendor
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Scheduled Time
+                </th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-8 text-gray-500">
+                    Loading maintenance requests...
+                  </td>
+                </tr>
+              ) : filteredRequests.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-8 text-gray-500">
+                    No maintenance requests found.
+                  </td>
+                </tr>
+              ) : (
+                filteredRequests.map((req) => (
+                  <>
+                    <tr key={req.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        {req.description}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                        {req.property?.name || "-"}
+                        {req.unit_id ? ` / Unit ${req.unit_id}` : ""}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span
+                          className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${STATUS_COLORS[req.status] || "bg-gray-100 text-gray-800"}`}
+                        >
+                          {req.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                        {req.vendor_name || "-"}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                        {req.scheduled_date ? new Date(req.scheduled_date).toLocaleString() : "-"}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right">
+                        <button
+                          className="text-blue-600 hover:underline text-sm"
+                          onClick={() => setExpandedId(expandedId === req.id ? null : req.id)}
+                        >
+                          {expandedId === req.id ? "Hide" : "Details"}
+                        </button>
+                      </td>
+                    </tr>
+                    {expandedId === req.id && (
+                      <tr>
+                        <td colSpan={6} className="bg-blue-50 px-4 py-4">
+                          <div className="text-sm text-gray-700 mb-2">
+                            <b>Created:</b> {new Date(req.created_at).toLocaleString()}<br />
+                            <b>Tenant:</b> {req.tenant?.first_name} {req.tenant?.last_name} ({req.tenant?.email})<br />
+                            <b>Vendor:</b> {req.vendor_name} ({req.vendor_email})<br />
+                            <b>Preferred Times:</b> {Array.isArray(req.preferred_times) ? req.preferred_times.join(", ") : req.preferred_times}<br />
+                            <b>Notes:</b> {req.notes || "-"}
+                          </div>
+                          {/* (Optional) Add actions: mark as completed, reassign vendor, etc. */}
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )

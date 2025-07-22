@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
 import { prisma } from '../index';
 import { createError } from '../middleware/errorHandler';
+import { Request, Response, NextFunction } from 'express';
 
 const router = Router();
 
@@ -15,7 +16,7 @@ router.post('/register', [
   body('lastName').trim().notEmpty(),
   body('phone').optional().trim(),
   body('role').optional().isIn(['LANDLORD', 'TENANT'])
-], async (req, res, next) => {
+], async (req: Request, res: Response, next: NextFunction) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -66,7 +67,7 @@ router.post('/register', [
     // Generate JWT token
     const secret = process.env.JWT_SECRET;
     if (!secret) {
-      throw createError('JWT_SECRET not configured', 500);
+      return next(createError('JWT_SECRET not configured', 500));
     }
 
     const token = jwt.sign(
@@ -84,8 +85,9 @@ router.post('/register', [
       user,
       token
     });
+    return;
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -93,7 +95,7 @@ router.post('/register', [
 router.post('/login', [
   body('email').isEmail().normalizeEmail(),
   body('password').notEmpty()
-], async (req, res, next) => {
+], async (req: Request, res: Response, next: NextFunction) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -127,7 +129,7 @@ router.post('/login', [
     // Generate JWT token
     const secret = process.env.JWT_SECRET;
     if (!secret) {
-      throw createError('JWT_SECRET not configured', 500);
+      return next(createError('JWT_SECRET not configured', 500));
     }
 
     const token = jwt.sign(
@@ -148,13 +150,14 @@ router.post('/login', [
       user: userWithoutPassword,
       token
     });
+    return;
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
 // Get current user profile
-router.get('/me', async (req, res, next) => {
+router.get('/me', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -167,7 +170,7 @@ router.get('/me', async (req, res, next) => {
     const secret = process.env.JWT_SECRET;
 
     if (!secret) {
-      throw createError('JWT_SECRET not configured', 500);
+      return next(createError('JWT_SECRET not configured', 500));
     }
 
     const decoded = jwt.verify(token, secret) as {
@@ -197,8 +200,9 @@ router.get('/me', async (req, res, next) => {
     }
 
     res.json({ user });
+    return;
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -206,7 +210,7 @@ router.get('/me', async (req, res, next) => {
 router.put('/change-password', [
   body('currentPassword').notEmpty(),
   body('newPassword').isLength({ min: 6 })
-], async (req, res, next) => {
+], async (req: Request, res: Response, next: NextFunction) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -227,7 +231,7 @@ router.put('/change-password', [
     const secret = process.env.JWT_SECRET;
 
     if (!secret) {
-      throw createError('JWT_SECRET not configured', 500);
+      return next(createError('JWT_SECRET not configured', 500));
     }
 
     const decoded = jwt.verify(token, secret) as {
@@ -270,8 +274,9 @@ router.put('/change-password', [
     res.json({ 
       message: 'Password changed successfully' 
     });
+    return;
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 

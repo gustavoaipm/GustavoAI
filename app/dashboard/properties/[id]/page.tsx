@@ -2,24 +2,19 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
+import { properties } from '@/lib/supabase-utils'
+import DashboardNav from '@/app/components/DashboardNav'
 import { 
-  ArrowLeftIcon,
   HomeIcon, 
-  EyeIcon, 
+  MapPinIcon, 
   PencilIcon, 
   TrashIcon,
-  MapPinIcon,
-  CurrencyDollarIcon,
   UsersIcon,
-  CalendarIcon,
-  PhoneIcon,
-  EnvelopeIcon,
   WrenchScrewdriverIcon,
-  DocumentTextIcon,
-  PlusIcon
+  CurrencyDollarIcon,
+  CalendarIcon
 } from '@heroicons/react/24/outline'
-import { useAuth } from '@/lib/auth-context'
-import DashboardNav from '@/app/components/DashboardNav'
 
 interface Property {
   id: string
@@ -27,30 +22,30 @@ interface Property {
   address: string
   city: string
   state: string
-  zipCode: string
-  propertyType: string
-  totalUnits: number
+  zip_code: string
+  property_type: string
+  total_units: number
   status: string
   description: string | null
   images: string[]
-  createdAt: string
-  updatedAt: string
+  created_at: string
+  updated_at: string
   units: Unit[]
   maintenance: Maintenance[]
 }
 
 interface Unit {
   id: string
-  unitNumber: string
+  unit_number: string
   bedrooms: number
   bathrooms: number
-  squareFeet: number | null
-  rentAmount: number
+  square_feet: number | null
+  rent_amount: number
   status: string
   description: string | null
   images: string[]
-  createdAt: string
-  updatedAt: string
+  created_at: string
+  updated_at: string
   tenants: Tenant[]
   maintenance: Maintenance[]
   payments: Payment[]
@@ -58,15 +53,15 @@ interface Unit {
 
 interface Tenant {
   id: string
-  firstName: string
-  lastName: string
+  first_name: string
+  last_name: string
   email: string
   phone: string
   status: string
-  leaseStart: string
-  leaseEnd: string
-  rentAmount: number
-  securityDeposit: number
+  lease_start: string
+  lease_end: string
+  rent_amount: number
+  security_deposit: number
 }
 
 interface Maintenance {
@@ -76,15 +71,15 @@ interface Maintenance {
   type: string
   priority: string
   status: string
-  scheduledDate: string | null
-  completedDate: string | null
+  scheduled_date: string | null
+  completed_date: string | null
   cost: number | null
-  vendorName: string | null
-  vendorPhone: string | null
-  vendorEmail: string | null
+  vendor_name: string | null
+  vendor_phone: string | null
+  vendor_email: string | null
   notes: string | null
   images: string[]
-  createdAt: string
+  created_at: string
 }
 
 interface Payment {
@@ -92,13 +87,13 @@ interface Payment {
   amount: number
   type: string
   status: string
-  dueDate: string
-  paidDate: string | null
-  lateFee: number
+  due_date: string
+  paid_date: string | null
+  late_fee: number
   description: string | null
   tenant: {
-    firstName: string
-    lastName: string
+    first_name: string
+    last_name: string
   }
 }
 
@@ -113,12 +108,6 @@ export default function PropertyDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login')
-    }
-  }, [user, loading, router])
-
-  useEffect(() => {
     if (user && propertyId) {
       fetchProperty()
     }
@@ -126,17 +115,8 @@ export default function PropertyDetailPage() {
 
   const fetchProperty = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/properties/${propertyId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setProperty(data.property)
-      } else {
-        router.push('/dashboard/properties')
-      }
+      const data = await properties.getById(propertyId)
+      setProperty(data)
     } catch (error) {
       console.error('Error fetching property:', error)
       router.push('/dashboard/properties')
@@ -152,18 +132,8 @@ export default function PropertyDetailPage() {
 
     setIsDeleting(true)
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/properties/${propertyId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      })
-
-      if (response.ok) {
-        router.push('/dashboard/properties')
-      } else {
-        alert('Failed to delete property')
-      }
+      await properties.delete(propertyId)
+      router.push('/dashboard/properties')
     } catch (error) {
       console.error('Error deleting property:', error)
       alert('Failed to delete property')
@@ -229,7 +199,7 @@ export default function PropertyDetailPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">{property.name}</h1>
-              <p className="mt-2 text-gray-600">{property.address}, {property.city}, {property.state} {property.zipCode}</p>
+              <p className="mt-2 text-gray-600">{property.address}, {property.city}, {property.state} {property.zip_code}</p>
             </div>
             <div className="flex space-x-3">
               <button
@@ -292,7 +262,7 @@ export default function PropertyDetailPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-2">Property Type</h3>
-                  <p className="text-gray-900">{property.propertyType}</p>
+                  <p className="text-gray-900">{property.property_type}</p>
                 </div>
                 
                 <div>
@@ -308,21 +278,24 @@ export default function PropertyDetailPage() {
 
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-2">Total Units</h3>
-                  <p className="text-gray-900">{property.totalUnits}</p>
+                  <p className="text-gray-900">{property.units?.length || 0}</p>
                 </div>
 
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-2">Available Units</h3>
                   <p className="text-gray-900 text-green-600">
-                    {property.units.filter(u => u.status === 'AVAILABLE').length}/{property.totalUnits}
+                    {property.units?.filter(u => u.status === 'AVAILABLE').length || 0}/{property.units?.length || 0}
                   </p>
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">Total Monthly Rent</h3>
-                  <p className="text-gray-900 font-semibold">
-                    {formatCurrency(property.units.reduce((sum, u) => sum + u.rentAmount, 0))}
-                  </p>
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">Created</h3>
+                  <p className="text-gray-900">{formatDate(property.created_at)}</p>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">Last Updated</h3>
+                  <p className="text-gray-900">{formatDate(property.updated_at)}</p>
                 </div>
               </div>
 
@@ -336,94 +309,78 @@ export default function PropertyDetailPage() {
 
             {/* Units */}
             <div className="card">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Units</h2>
-              <div className="space-y-4">
-                {property.units.map((unit) => (
-                  <div key={unit.id} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900">Unit {unit.unitNumber}</h3>
-                        <div className="flex items-center text-sm text-gray-600 mt-1">
-                          <HomeIcon className="h-4 w-4 mr-1" />
-                          {unit.bedrooms} bed, {unit.bathrooms} bath
-                          {unit.squareFeet && ` • ${unit.squareFeet.toLocaleString()} sq ft`}
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Units</h2>
+                <button
+                  onClick={() => router.push(`/dashboard/properties/${propertyId}/units/new`)}
+                  className="btn-primary text-sm"
+                >
+                  Add Unit
+                </button>
+              </div>
+
+              {property.units && property.units.length > 0 ? (
+                <div className="space-y-4">
+                  {property.units.map((unit) => (
+                    <div key={unit.id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-medium text-gray-900">Unit {unit.unit_number}</h3>
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          unit.status === 'OCCUPIED' ? 'bg-green-100 text-green-800' :
-                          unit.status === 'AVAILABLE' ? 'bg-blue-100 text-blue-800' :
-                          unit.status === 'MAINTENANCE' ? 'bg-yellow-100 text-yellow-800' :
-                          unit.status === 'RESERVED' ? 'bg-purple-100 text-purple-800' :
-                          'bg-gray-100 text-gray-800'
+                          unit.status === 'AVAILABLE' ? 'bg-green-100 text-green-800' :
+                          unit.status === 'OCCUPIED' ? 'bg-blue-100 text-blue-800' :
+                          'bg-yellow-100 text-yellow-800'
                         }`}>
                           {unit.status}
                         </span>
-                        <span className="text-lg font-semibold text-green-600">
-                          {formatCurrency(unit.rentAmount)}
-                        </span>
                       </div>
-                    </div>
-
-                    {unit.description && (
-                      <p className="text-sm text-gray-600 mb-4">{unit.description}</p>
-                    )}
-
-                    {/* Unit Tenants */}
-                    {unit.tenants && unit.tenants.length > 0 && (
-                      <div className="mt-4">
-                        <h4 className="text-sm font-medium text-gray-700 mb-2">Current Tenants</h4>
-                        <div className="space-y-2">
-                          {unit.tenants.map((tenant) => (
-                            <div key={tenant.id} className="flex items-center justify-between text-sm">
-                              <div className="flex items-center">
-                                <UsersIcon className="h-4 w-4 mr-2 text-gray-400" />
-                                <span className="font-medium">{tenant.firstName} {tenant.lastName}</span>
-                              </div>
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                tenant.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                              }`}>
-                                {tenant.status}
-                              </span>
-                            </div>
-                          ))}
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-500">Bedrooms:</span>
+                          <span className="ml-1 font-medium">{unit.bedrooms}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Bathrooms:</span>
+                          <span className="ml-1 font-medium">{unit.bathrooms}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Rent:</span>
+                          <span className="ml-1 font-medium">{formatCurrency(unit.rent_amount)}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Tenants:</span>
+                          <span className="ml-1 font-medium">{unit.status === 'OCCUPIED' ? (unit.tenants?.length || 0) : 0}</span>
                         </div>
                       </div>
-                    )}
-
-                    {/* Unit Actions */}
-                    <div className="flex space-x-2 mt-4">
-                      <button
-                        onClick={() => router.push(`/dashboard/units/${unit.id}`)}
-                        className="btn-secondary flex items-center text-sm"
-                      >
-                        <EyeIcon className="h-4 w-4 mr-1" />
-                        View Details
-                      </button>
-                      <button
-                        onClick={() => router.push(`/dashboard/units/${unit.id}/edit`)}
-                        className="btn-outline text-sm"
-                      >
-                        <PencilIcon className="h-4 w-4" />
-                      </button>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <HomeIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">No units added yet</p>
+                </div>
+              )}
             </div>
 
             {/* Recent Maintenance */}
-            {property.maintenance && property.maintenance.length > 0 && (
-              <div className="card">
-                <h2 className="text-xl font-semibold text-gray-900 mb-6">Recent Maintenance</h2>
+            <div className="card">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Recent Maintenance</h2>
+                <button
+                  onClick={() => router.push(`/dashboard/maintenance/new?propertyId=${propertyId}`)}
+                  className="btn-primary text-sm"
+                >
+                  Add Request
+                </button>
+              </div>
+
+              {property.maintenance && property.maintenance.length > 0 ? (
                 <div className="space-y-4">
-                  {property.maintenance.slice(0, 3).map((maintenance) => (
+                  {property.maintenance.slice(0, 5).map((maintenance) => (
                     <div key={maintenance.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-medium text-gray-900">{maintenance.title}</h3>
-                          <p className="text-sm text-gray-600 mt-1">{maintenance.description}</p>
-                        </div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-medium text-gray-900">{maintenance.title}</h3>
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                           maintenance.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
                           maintenance.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
@@ -432,15 +389,21 @@ export default function PropertyDetailPage() {
                           {maintenance.status}
                         </span>
                       </div>
-                      <div className="flex items-center text-sm text-gray-600 mt-2">
-                        <WrenchScrewdriverIcon className="h-4 w-4 mr-1" />
-                        {maintenance.type} • {maintenance.priority} priority
+                      <p className="text-sm text-gray-600 mb-2">{maintenance.description}</p>
+                      <div className="flex items-center text-xs text-gray-500">
+                        <CalendarIcon className="h-3 w-3 mr-1" />
+                        {formatDate(maintenance.created_at)}
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="text-center py-8">
+                  <WrenchScrewdriverIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">No maintenance requests</p>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Sidebar */}
@@ -449,58 +412,33 @@ export default function PropertyDetailPage() {
             <div className="card">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Stats</h3>
               <div className="space-y-4">
-                <div className="flex justify-between">
+                <div className="flex items-center justify-between">
                   <span className="text-gray-600">Total Units</span>
-                  <span className="font-medium">{property.totalUnits}</span>
+                  <span className="font-medium">{property.units?.length || 0}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Available Units</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Available</span>
                   <span className="font-medium text-green-600">
                     {property.units?.filter(u => u.status === 'AVAILABLE').length || 0}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Occupied Units</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Occupied</span>
                   <span className="font-medium text-blue-600">
                     {property.units?.filter(u => u.status === 'OCCUPIED').length || 0}
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex items-center justify-between">
                   <span className="text-gray-600">Total Tenants</span>
-                  <span className="font-medium">
-                    {property.units?.reduce((sum, u) => sum + (u.tenants?.length || 0), 0) || 0}
+                  <span className="font-medium text-purple-600">
+                    {property.units?.filter(u => u.status === 'OCCUPIED').reduce((sum, u) => sum + (u.tenants?.length || 0), 0) || 0}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Active Maintenance</span>
-                  <span className="font-medium">
-                    {property.maintenance?.filter(m => m.status !== 'COMPLETED').length || 0}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Monthly Revenue</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Total Rent</span>
                   <span className="font-medium text-green-600">
-                    {formatCurrency(property.units?.reduce((sum, u) => sum + u.rentAmount, 0) || 0)}
+                    {formatCurrency(property.units?.reduce((sum, u) => sum + u.rent_amount, 0) || 0)}
                   </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Property Info */}
-            <div className="card">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Property Information</h3>
-              <div className="space-y-3 text-sm">
-                <div>
-                  <span className="text-gray-500">Created</span>
-                  <div className="font-medium">{formatDate(property.createdAt)}</div>
-                </div>
-                <div>
-                  <span className="text-gray-500">Last Updated</span>
-                  <div className="font-medium">{formatDate(property.updatedAt)}</div>
-                </div>
-                <div>
-                  <span className="text-gray-500">Property ID</span>
-                  <div className="font-medium font-mono text-xs">{property.id}</div>
                 </div>
               </div>
             </div>
@@ -509,24 +447,33 @@ export default function PropertyDetailPage() {
             <div className="card">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
               <div className="space-y-3">
-                <button 
+                <button
                   onClick={() => router.push(`/dashboard/properties/${propertyId}/units/new`)}
-                  className="w-full btn-primary flex items-center justify-center"
+                  className="w-full btn-secondary flex items-center justify-center"
                 >
-                  <PlusIcon className="h-4 w-4 mr-2" />
+                  <HomeIcon className="h-4 w-4 mr-2" />
                   Add Unit
                 </button>
-                <button className="w-full btn-secondary flex items-center justify-center">
+                <button
+                  onClick={() => router.push(`/dashboard/tenants/new?propertyId=${propertyId}`)}
+                  className="w-full btn-secondary flex items-center justify-center"
+                >
                   <UsersIcon className="h-4 w-4 mr-2" />
                   Add Tenant
                 </button>
-                <button className="w-full btn-secondary flex items-center justify-center">
+                <button
+                  onClick={() => router.push(`/dashboard/maintenance/new?propertyId=${propertyId}`)}
+                  className="w-full btn-secondary flex items-center justify-center"
+                >
                   <WrenchScrewdriverIcon className="h-4 w-4 mr-2" />
-                  Create Maintenance Request
+                  Maintenance Request
                 </button>
-                <button className="w-full btn-secondary flex items-center justify-center">
-                  <DocumentTextIcon className="h-4 w-4 mr-2" />
-                  View Documents
+                <button
+                  onClick={() => router.push(`/dashboard/payments/new?propertyId=${propertyId}`)}
+                  className="w-full btn-secondary flex items-center justify-center"
+                >
+                  <CurrencyDollarIcon className="h-4 w-4 mr-2" />
+                  Record Payment
                 </button>
               </div>
             </div>

@@ -1,10 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { tenants } from '@/lib/supabase-utils'
-import { tenantInvitations } from '@/lib/supabase-utils'
 import { supabase } from '@/lib/supabase'
 import DashboardNav from '@/app/components/DashboardNav'
 import { 
@@ -12,23 +11,9 @@ import {
   HomeIcon, 
   CalendarIcon, 
   CurrencyDollarIcon,
-  ExclamationTriangleIcon,
-  ArrowLeftIcon
+  ArrowLeftIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
-
-interface Unit {
-  id: string
-  unit_number: string
-  bedrooms: number
-  bathrooms: number
-  square_feet: number | null
-  rent_amount: number
-  property_id: string
-  property: {
-    name: string
-    address: string
-  }
-}
 
 interface TenantFormData {
   first_name: string
@@ -38,6 +23,7 @@ interface TenantFormData {
   date_of_birth: string
   emergency_contact: string
   emergency_phone: string
+  status: 'ACTIVE' | 'INACTIVE' | 'EVICTED' | 'MOVED_OUT'
   lease_start: string
   lease_end: string
   rent_amount: number | ''
@@ -45,12 +31,31 @@ interface TenantFormData {
   unit_id: string
 }
 
-export default function AddTenantPage() {
+interface Unit {
+  id: string
+  unit_number: string
+  bedrooms: number
+  bathrooms: number
+  square_feet: number | null
+  rent_amount: number
+  status: string
+  property_id: string
+  property: {
+    name: string
+    address: string
+  }
+}
+
+export default function EditTenantPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
+  const params = useParams()
+  const tenantId = params.id as string
+  
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([])
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null)
   const [isLoadingUnits, setIsLoadingUnits] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   
   const [formData, setFormData] = useState<TenantFormData>({
@@ -61,6 +66,7 @@ export default function AddTenantPage() {
     date_of_birth: '',
     emergency_contact: '',
     emergency_phone: '',
+    status: 'ACTIVE',
     lease_start: '',
     lease_end: '',
     rent_amount: '',
@@ -69,17 +75,49 @@ export default function AddTenantPage() {
   })
 
   useEffect(() => {
-    if (user) {
+    if (user && tenantId) {
+      fetchTenant()
       fetchAvailableUnits()
     }
-  }, [user])
+  }, [user, tenantId])
+
+  const fetchTenant = async () => {
+    try {
+      const tenant = await tenants.getById(tenantId)
+      
+      setFormData({
+        first_name: tenant.first_name,
+        last_name: tenant.last_name,
+        email: tenant.email,
+        phone: tenant.phone,
+        date_of_birth: tenant.date_of_birth || '',
+        emergency_contact: tenant.emergency_contact || '',
+        emergency_phone: tenant.emergency_phone || '',
+        status: tenant.status,
+        lease_start: tenant.lease_start,
+        lease_end: tenant.lease_end,
+        rent_amount: tenant.rent_amount,
+        security_deposit: tenant.security_deposit,
+        unit_id: tenant.unit_id
+      })
+
+      // Set selected unit
+      setSelectedUnit(tenant.unit)
+    } catch (error) {
+      console.error('Error fetching tenant:', error)
+      router.push('/dashboard/tenants')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const fetchAvailableUnits = async () => {
     try {
-      const data = await tenants.getAvailableUnits()
+      // Get all units (not just available ones) for editing
+      const data = await tenants.getAllUnits()
       setAvailableUnits(data)
     } catch (error) {
-      console.error('Error fetching available units:', error)
+      console.error('Error fetching units:', error)
     } finally {
       setIsLoadingUnits(false)
     }
@@ -116,15 +154,16 @@ export default function AddTenantPage() {
 
       if (!selectedUnit) throw new Error('No unit selected')
 
-      // Create tenant invitation
-      const invitation = await tenantInvitations.create({
-        email: formData.email,
+      // Update tenant
+      await tenants.update(tenantId, {
         first_name: formData.first_name,
         last_name: formData.last_name,
+        email: formData.email,
         phone: formData.phone,
-        date_of_birth: formData.date_of_birth || undefined,
-        emergency_contact: formData.emergency_contact || undefined,
-        emergency_phone: formData.emergency_phone || undefined,
+        date_of_birth: formData.date_of_birth || null,
+        emergency_contact: formData.emergency_contact || null,
+        emergency_phone: formData.emergency_phone || null,
+        status: formData.status,
         lease_start: formData.lease_start,
         lease_end: formData.lease_end,
         rent_amount: parseFloat(formData.rent_amount.toString()),
@@ -133,38 +172,10 @@ export default function AddTenantPage() {
         landlord_id: currentUser.id
       })
 
-      // Send invitation email
-      const verificationUrl = `${window.location.origin}/auth/tenant-verify?token=${invitation.verification_token}`
-      
-      const emailResponse = await fetch('/api/tenant-invitations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          type: 'invitation',
-          data: {
-            email: formData.email,
-            first_name: formData.first_name,
-            last_name: formData.last_name,
-            property_name: selectedUnit.property.name,
-            unit_number: selectedUnit.unit_number,
-            landlord_name: `${currentUser.user_metadata?.first_name || 'Property Manager'} ${currentUser.user_metadata?.last_name || ''}`,
-            verification_url: verificationUrl,
-            expires_at: invitation.expires_at
-          }
-        })
-      })
-
-      if (!emailResponse.ok) {
-        throw new Error('Failed to send invitation email')
-      }
-
-      alert('Tenant invitation sent successfully! The tenant will receive an email to verify and create their account.')
-      router.push('/dashboard/tenants')
+      router.push(`/dashboard/tenants/${tenantId}`)
     } catch (error) {
-      console.error('Error creating tenant invitation:', error)
-      alert('Failed to send tenant invitation. Please try again.')
+      console.error('Error updating tenant:', error)
+      alert('Failed to update tenant. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -177,19 +188,18 @@ export default function AddTenantPage() {
     }).format(amount)
   }
 
-  if (loading || isLoadingUnits) {
+  if (loading || isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600">Loading tenant...</p>
         </div>
       </div>
     )
   }
 
   if (!user) {
-    router.push('/login')
     return null
   }
 
@@ -199,24 +209,23 @@ export default function AddTenantPage() {
       
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Add New Tenant</h1>
-              <p className="mt-2 text-gray-600">Add a new tenant and send them an invitation to join the portal</p>
-            </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center">
             <button
-              onClick={() => router.push('/dashboard/tenants')}
-              className="btn-outline flex items-center"
+              onClick={() => router.push(`/dashboard/tenants/${tenantId}`)}
+              className="mr-4 text-gray-400 hover:text-gray-600"
             >
-              <ArrowLeftIcon className="h-4 w-4 mr-2" />
-              Back to Tenants
+              <ArrowLeftIcon className="h-6 w-6" />
             </button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Edit Tenant</h1>
+              <p className="mt-2 text-gray-600">Update tenant information and lease details</p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Form */}
+      {/* Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Basic Information */}
@@ -298,6 +307,24 @@ export default function AddTenantPage() {
                   onChange={(e) => handleInputChange('date_of_birth', e.target.value)}
                   className="form-input"
                 />
+              </div>
+
+              <div>
+                <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-2">
+                  Status *
+                </label>
+                <select
+                  id="status"
+                  required
+                  value={formData.status}
+                  onChange={(e) => handleInputChange('status', e.target.value as any)}
+                  className="form-select"
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                  <option value="EVICTED">Evicted</option>
+                  <option value="MOVED_OUT">Moved Out</option>
+                </select>
               </div>
 
               <div>
@@ -397,7 +424,7 @@ export default function AddTenantPage() {
                 {availableUnits.length === 0 && (
                   <p className="mt-2 text-sm text-red-600">
                     <ExclamationTriangleIcon className="h-4 w-4 inline mr-1" />
-                    No available units found. Please add units to your properties first.
+                    No units found. Please add units to your properties first.
                   </p>
                 )}
               </div>
@@ -476,7 +503,7 @@ export default function AddTenantPage() {
           <div className="flex justify-end space-x-4">
             <button
               type="button"
-              onClick={() => router.push('/dashboard/tenants')}
+              onClick={() => router.push(`/dashboard/tenants/${tenantId}`)}
               className="btn-outline"
             >
               Cancel
@@ -484,15 +511,15 @@ export default function AddTenantPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="btn-primary flex items-center"
+              className="btn-primary"
             >
               {isSubmitting ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Creating...
+                  Updating...
                 </>
               ) : (
-                'Create Tenant'
+                'Update Tenant'
               )}
             </button>
           </div>

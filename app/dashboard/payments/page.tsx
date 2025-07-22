@@ -2,50 +2,47 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
+import { payments } from '@/lib/supabase-utils'
+import DashboardNav from '@/app/components/DashboardNav'
 import { 
   PlusIcon, 
   CurrencyDollarIcon, 
-  EyeIcon, 
-  CheckCircleIcon,
-  ClockIcon,
+  CheckCircleIcon, 
+  ClockIcon, 
   ExclamationTriangleIcon,
   CalendarIcon,
   UserIcon,
-  ArrowLeftIcon
+  HomeIcon
 } from '@heroicons/react/24/outline'
-import { useAuth } from '@/lib/auth-context'
-import DashboardNav from '@/app/components/DashboardNav'
 
 interface Payment {
   id: string
   amount: number
   type: string
   status: string
-  dueDate: string
-  paidDate?: string
-  lateFee: number
+  due_date: string
+  paid_date?: string
+  late_fee: number
   description?: string
   tenant: {
-    firstName: string
-    lastName: string
+    first_name: string
+    last_name: string
   }
-  property: {
-    name: string
+  unit: {
+    unit_number: string
+    property: {
+      name: string
+    }
   }
 }
 
 export default function PaymentsPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
-  const [payments, setPayments] = useState<Payment[]>([])
+  const [paymentsList, setPayments] = useState<Payment[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [filter, setFilter] = useState('all')
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login')
-    }
-  }, [user, loading, router])
 
   useEffect(() => {
     if (user) {
@@ -55,15 +52,8 @@ export default function PaymentsPage() {
 
   const fetchPayments = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setPayments(data)
-      }
+      const data = await payments.getAll()
+      setPayments(data)
     } catch (error) {
       console.error('Error fetching payments:', error)
     } finally {
@@ -110,22 +100,22 @@ export default function PaymentsPage() {
     }).format(amount)
   }
 
-  const filteredPayments = payments.filter(payment => {
+  const filteredPayments = paymentsList.filter(payment => {
     if (filter === 'all') return true
     return payment.status === filter.toUpperCase()
   })
 
-  const totalCollected = payments
+  const totalCollected = paymentsList
     .filter(p => p.status === 'PAID')
     .reduce((sum, p) => sum + p.amount, 0)
 
-  const totalPending = payments
+  const totalPending = paymentsList
     .filter(p => p.status === 'PENDING')
     .reduce((sum, p) => sum + p.amount, 0)
 
-  const totalOverdue = payments
+  const totalOverdue = paymentsList
     .filter(p => p.status === 'OVERDUE')
-    .reduce((sum, p) => sum + p.amount + p.lateFee, 0)
+    .reduce((sum, p) => sum + p.amount + p.late_fee, 0)
 
   if (loading || isLoading) {
     return (
@@ -182,7 +172,7 @@ export default function PaymentsPage() {
             <div className="text-gray-600">Overdue Amount</div>
           </div>
           <div className="card text-center">
-            <div className="text-3xl font-bold text-primary-600">{payments.length}</div>
+            <div className="text-3xl font-bold text-primary-600">{paymentsList.length}</div>
             <div className="text-gray-600">Total Transactions</div>
           </div>
         </div>
@@ -260,44 +250,45 @@ export default function PaymentsPage() {
                     <tr key={payment.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="flex-shrink-0 h-8 w-8">
-                            <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
-                              <UserIcon className="h-4 w-4 text-primary-600" />
-                            </div>
-                          </div>
-                          <div className="ml-3">
+                          <UserIcon className="h-5 w-5 text-gray-400 mr-2" />
+                          <div>
                             <div className="text-sm font-medium text-gray-900">
-                              {payment.tenant.firstName} {payment.tenant.lastName}
+                              {payment.tenant?.first_name} {payment.tenant?.last_name}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{payment.property.name}</div>
+                        <div className="flex items-center">
+                          <HomeIcon className="h-5 w-5 text-gray-400 mr-2" />
+                          <div className="text-sm text-gray-900">
+                            {payment.unit?.property?.name || 'N/A'}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
                           {formatCurrency(payment.amount)}
                         </div>
-                        {payment.lateFee > 0 && (
+                        {payment.late_fee > 0 && (
                           <div className="text-xs text-red-600">
-                            +{formatCurrency(payment.lateFee)} late fee
+                            +{formatCurrency(payment.late_fee)} late fee
                           </div>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-900 capitalize">
-                          {payment.type.replace('_', ' ').toLowerCase()}
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                          {payment.type}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center text-sm text-gray-900">
                           <CalendarIcon className="h-4 w-4 mr-1" />
-                          {formatDate(payment.dueDate)}
+                          {formatDate(payment.due_date)}
                         </div>
-                        {payment.paidDate && (
+                        {payment.paid_date && (
                           <div className="text-xs text-gray-500">
-                            Paid: {formatDate(payment.paidDate)}
+                            Paid: {formatDate(payment.paid_date)}
                           </div>
                         )}
                       </td>
@@ -312,10 +303,9 @@ export default function PaymentsPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
                           onClick={() => router.push(`/dashboard/payments/${payment.id}`)}
-                          className="btn-secondary text-xs"
+                          className="text-primary-600 hover:text-primary-900"
                         >
-                          <EyeIcon className="h-4 w-4 mr-1" />
-                          View
+                          View Details
                         </button>
                       </td>
                     </tr>
