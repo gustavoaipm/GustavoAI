@@ -119,7 +119,7 @@ export default function TenantInvitationsPage() {
             last_name: invitation.last_name,
             property_name: invitation.unit.property.name,
             unit_number: invitation.unit.unit_number,
-            landlord_name: `${user?.user_metadata?.first_name || 'Property Manager'} ${user?.user_metadata?.last_name || ''}`,
+            landlord_name: `${user?.first_name || 'Property Manager'} ${user?.last_name || ''}`,
             verification_url: verificationUrl,
             expires_at: newExpiresAt.toISOString()
           }

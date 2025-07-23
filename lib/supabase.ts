@@ -59,6 +59,7 @@ export type Database = {
           description: string | null
           images: string[]
           owner_id: string
+          total_units: number
           created_at: string
           updated_at: string
         }
@@ -78,6 +79,7 @@ export type Database = {
           description?: string | null
           images?: string[]
           owner_id: string
+          total_units?: number
           created_at?: string
           updated_at?: string
         }

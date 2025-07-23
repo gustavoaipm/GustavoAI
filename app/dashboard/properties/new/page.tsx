@@ -22,11 +22,11 @@ interface PropertyFormData {
 }
 
 interface UnitFormData {
-  unitNumber: string
+  unit_number: string
   bedrooms: number
   bathrooms: number
-  squareFeet: number | ''
-  rentAmount: number | ''
+  square_feet: number | ''
+  rent_amount: number | ''
   description: string
 }
 
@@ -58,13 +58,13 @@ export default function AddPropertyPage() {
     description: '',
   })
 
-  const [units, setUnits] = useState<UnitFormData[]>([
+  const [unitList, setUnitList] = useState<UnitFormData[]>([
     {
-      unitNumber: '1',
+      unit_number: '1',
       bedrooms: 1,
       bathrooms: 1,
-      squareFeet: '',
-      rentAmount: '',
+      square_feet: '',
+      rent_amount: '',
       description: '',
     }
   ])
@@ -94,76 +94,76 @@ export default function AddPropertyPage() {
   }
 
   const handleUnitChange = (index: number, field: keyof UnitFormData, value: string | number) => {
-    setUnits(prev => prev.map((unit, i) => 
+    setUnitList(prev => prev.map((unit, i) => 
       i === index ? { ...unit, [field]: value } : unit
     ))
   }
 
   const addUnit = () => {
-    const newUnitNumber = (units.length + 1).toString()
-    setUnits(prev => [...prev, {
-      unitNumber: newUnitNumber,
+    const newUnitNumber = (unitList.length + 1).toString()
+    setUnitList(prev => [...prev, {
+      unit_number: newUnitNumber,
       bedrooms: 1,
       bathrooms: 1,
-      squareFeet: '',
-      rentAmount: '',
+      square_feet: '',
+      rent_amount: '',
       description: '',
     }])
   }
 
   const duplicateUnit = (index: number) => {
-    const unitToDuplicate = units[index]
-    const newUnitNumber = (units.length + 1).toString()
-    setUnits(prev => [...prev, {
+    const unitToDuplicate = unitList[index]
+    const newUnitNumber = (unitList.length + 1).toString()
+    setUnitList(prev => [...prev, {
       ...unitToDuplicate,
-      unitNumber: newUnitNumber,
+      unit_number: newUnitNumber,
     }])
   }
 
   const duplicateAllUnits = () => {
-    const baseUnit = units[0]
-    const newUnits = []
+    const baseUnit = unitList[0]
+    const newUnits: UnitFormData[] = []
     
     for (let i = 1; i <= formData.totalUnits; i++) {
       newUnits.push({
         ...baseUnit,
-        unitNumber: i.toString(),
+        unit_number: i.toString(),
       })
     }
     
-    setUnits(newUnits)
+    setUnitList(newUnits)
   }
 
   const removeUnit = (index: number) => {
-    if (units.length > 1) {
-      setUnits(prev => prev.filter((_, i) => i !== index))
+    if (unitList.length > 1) {
+      setUnitList(prev => prev.filter((_, i) => i !== index))
     }
   }
 
   const updateTotalUnits = (totalUnits: number) => {
     handleInputChange('totalUnits', totalUnits)
     
-    if (totalUnits > units.length) {
+    if (totalUnits > unitList.length) {
       // Add missing units
-      const newUnits = []
+      const newUnits: UnitFormData[] = []
       for (let i = 1; i <= totalUnits; i++) {
-        if (i <= units.length) {
-          newUnits.push(units[i - 1])
+        if (i <= unitList.length) {
+          newUnits.push(unitList[i - 1])
         } else {
           newUnits.push({
-            unitNumber: i.toString(),
+            unit_number: i.toString(),
             bedrooms: 1,
             bathrooms: 1,
-            squareFeet: '',
-            rentAmount: '',
+            square_feet: '',
+            rent_amount: '',
             description: '',
           })
         }
       }
-      setUnits(newUnits)
-    } else if (totalUnits < units.length) {
+      setUnitList(newUnits)
+    } else if (totalUnits < unitList.length) {
       // Remove excess units
-      setUnits(prev => prev.slice(0, totalUnits))
+      setUnitList(prev => prev.slice(0, totalUnits))
     }
   }
 
@@ -181,20 +181,29 @@ export default function AddPropertyPage() {
         zip_code: formData.zipCode,
         property_type: formData.propertyType,
         description: formData.description,
+        total_units: formData.totalUnits,
+        // Use the first unit as a template for property-level fields, or set defaults
+        bedrooms: unitList[0]?.bedrooms || 1,
+        bathrooms: unitList[0]?.bathrooms || 1,
+        square_feet: unitList[0]?.square_feet || 0,
+        rent_amount: unitList[0]?.rent_amount ? parseFloat(unitList[0].rent_amount.toString()) : 0,
+        status: 'AVAILABLE' as 'AVAILABLE',
+        images: [],
+        owner_id: '', // will be set by backend
       }
 
       const property = await properties.create(propertyData)
 
       // If units are provided, create them using the units utility
-      if (units && units.length > 0) {
-        for (const unitData of units) {
+      if (unitList && unitList.length > 0) {
+        for (const unitData of unitList) {
           await units.create({
             property_id: property.id,
-            unit_number: unitData.unitNumber,
+            unit_number: unitData.unit_number,
             bedrooms: unitData.bedrooms,
             bathrooms: unitData.bathrooms,
-            square_feet: unitData.squareFeet || undefined,
-            rent_amount: parseFloat(unitData.rentAmount.toString()),
+            square_feet: unitData.square_feet || undefined,
+            rent_amount: parseFloat(unitData.rent_amount.toString()),
             status: 'AVAILABLE',
             description: unitData.description,
           })
@@ -450,10 +459,10 @@ export default function AddPropertyPage() {
             </div>
 
             <div className="space-y-6">
-              {units.map((unit, index) => (
+              {unitList.map((unit: UnitFormData, index: number) => (
                 <div key={index} className="border border-gray-200 rounded-lg p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">Unit {unit.unitNumber}</h3>
+                    <h3 className="text-lg font-medium text-gray-900">Unit {unit.unit_number}</h3>
                     <div className="flex space-x-2">
                       <button
                         type="button"
@@ -463,7 +472,7 @@ export default function AddPropertyPage() {
                         <DocumentDuplicateIcon className="h-4 w-4 mr-1" />
                         Duplicate
                       </button>
-                      {units.length > 1 && (
+                      {unitList.length > 1 && (
                         <button
                           type="button"
                           onClick={() => removeUnit(index)}
@@ -483,8 +492,8 @@ export default function AddPropertyPage() {
                       </label>
                       <input
                         type="text"
-                        value={unit.unitNumber}
-                        onChange={(e) => handleUnitChange(index, 'unitNumber', e.target.value)}
+                        value={unit.unit_number}
+                        onChange={(e) => handleUnitChange(index, 'unit_number', e.target.value)}
                         className="form-input"
                         placeholder="A"
                       />
@@ -526,8 +535,8 @@ export default function AddPropertyPage() {
                       <input
                         type="number"
                         min="0"
-                        value={unit.squareFeet}
-                        onChange={(e) => handleUnitChange(index, 'squareFeet', e.target.value ? parseInt(e.target.value) : '')}
+                        value={unit.square_feet}
+                        onChange={(e) => handleUnitChange(index, 'square_feet', e.target.value ? parseInt(e.target.value) : '')}
                         className="form-input"
                         placeholder="800"
                       />
@@ -541,8 +550,8 @@ export default function AddPropertyPage() {
                         type="number"
                         min="0"
                         step="0.01"
-                        value={unit.rentAmount}
-                        onChange={(e) => handleUnitChange(index, 'rentAmount', e.target.value ? parseFloat(e.target.value) : '')}
+                        value={unit.rent_amount}
+                        onChange={(e) => handleUnitChange(index, 'rent_amount', e.target.value ? parseFloat(e.target.value) : '')}
                         className="form-input"
                         placeholder="1200.00"
                       />
