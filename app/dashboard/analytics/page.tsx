@@ -40,6 +40,23 @@ interface AnalyticsData {
   }[]
 }
 
+interface Unit {
+  id: string
+  unit_number: string
+  bedrooms: number
+  bathrooms: number
+  square_feet: number | null
+  rent_amount: number
+  status: string
+  description: string | null
+  images: string[]
+  created_at: string
+  updated_at: string
+  tenants: any[]
+  maintenance: any[]
+  payments: any[]
+}
+
 export default function AnalyticsPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
@@ -65,15 +82,15 @@ export default function AnalyticsPage() {
 
       // Calculate analytics from the data
       const totalProperties = propertiesData.length
-      const occupiedProperties = propertiesData.filter(p => 
-        p.units?.some(u => u.status === 'OCCUPIED')
+      const occupiedProperties = propertiesData.filter(p =>
+        p.units?.some((u: Unit) => u.status === 'OCCUPIED')
       ).length
       
       const totalTenants = tenantsData.length
       const activeTenants = tenantsData.filter(t => t.status === 'ACTIVE').length
       
       const totalMonthlyRent = propertiesData.reduce((sum, property) => 
-        sum + (property.units?.reduce((unitSum, unit) => unitSum + unit.rent_amount, 0) || 0), 0
+        sum + (property.units?.reduce((unitSum: number, unit: Unit) => unitSum + unit.rent_amount, 0) || 0), 0
       )
       
       const currentMonth = new Date().getMonth()
@@ -117,8 +134,8 @@ export default function AnalyticsPage() {
 
       // Property performance
       const propertyPerformance = propertiesData.map(property => {
-        const rentAmount = property.units?.reduce((sum, unit) => sum + unit.rent_amount, 0) || 0
-        const occupiedUnits = property.units?.filter(u => u.status === 'OCCUPIED').length || 0
+        const rentAmount = property.units?.reduce((sum: number, unit: Unit) => sum + unit.rent_amount, 0) || 0
+        const occupiedUnits = property.units?.filter((u: Unit) => u.status === 'OCCUPIED').length || 0
         const totalUnits = property.units?.length || 0
         const occupancyStatus = totalUnits > 0 ? (occupiedUnits === totalUnits ? 'Occupied' : 'Partially Occupied') : 'Available'
         

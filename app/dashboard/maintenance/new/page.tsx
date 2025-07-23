@@ -87,14 +87,21 @@ export default function NewMaintenanceRequestPage() {
       await maintenance.create({
         title: form.description.substring(0, 100), // Use first 100 chars as title
         description: form.description,
-        type: form.service_type,
+        type: form.service_type as "CLEANING" | "REPAIR" | "INSPECTION" | "PEST_CONTROL" | "HVAC" | "PLUMBING" | "ELECTRICAL" | "LANDSCAPING" | "OTHER",
         priority: 'MEDIUM',
         status: 'REQUESTED',
         property_id: form.property_id,
         unit_id: form.unit_id || null,
         tenant_id: user?.id || null,
-        preferred_times: form.preferred_times.filter((t) => t),
-        notes: `Preferred times: ${form.preferred_times.filter((t) => t).join(', ')}`
+        notes: `Preferred times: ${form.preferred_times.filter((t) => t).join(', ')}`,
+        images: [],
+        scheduled_date: null,
+        completed_date: null,
+        cost: null,
+        vendor_name: null,
+        vendor_phone: null,
+        vendor_email: null,
+        assigned_to_id: null,
       })
       
       setSuccess(true)

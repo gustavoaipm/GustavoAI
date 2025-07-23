@@ -875,7 +875,7 @@ export const maintenance = {
   },
 
   // Create new maintenance request
-  create: async (maintenanceData: Omit<Maintenance, 'id' | 'created_at' | 'updated_at'>) => {
+  create: async (maintenanceData: Omit<Maintenance, 'id' | 'created_at' | 'updated_at'> & { unit_id?: string | null }) => {
     const { data, error } = await supabase
       .from('maintenance')
       .insert(maintenanceData)

@@ -38,6 +38,7 @@ export type Database = {
           phone?: string | null
           role?: 'LANDLORD' | 'TENANT' | 'ADMIN'
           created_at?: string
+          total_units?: number
           updated_at?: string
         }
       }
@@ -96,6 +97,7 @@ export type Database = {
           description?: string | null
           images?: string[]
           owner_id?: string
+          total_units?: number
           created_at?: string
           updated_at?: string
         }
@@ -116,6 +118,7 @@ export type Database = {
           rent_amount: number
           security_deposit: number
           property_id: string
+          unit_id: string
           landlord_id: string
           created_at: string
           updated_at: string
@@ -135,6 +138,7 @@ export type Database = {
           rent_amount: number
           security_deposit: number
           property_id: string
+          unit_id: string
           landlord_id: string
           created_at?: string
           updated_at?: string
@@ -154,6 +158,7 @@ export type Database = {
           rent_amount?: number
           security_deposit?: number
           property_id?: string
+          unit_id?: string
           landlord_id?: string
           created_at?: string
           updated_at?: string
@@ -226,6 +231,7 @@ export type Database = {
           notes: string | null
           images: string[]
           property_id: string
+          unit_id: string | null
           tenant_id: string | null
           assigned_to_id: string | null
           created_at: string
@@ -247,6 +253,7 @@ export type Database = {
           notes?: string | null
           images?: string[]
           property_id: string
+          unit_id?: string | null
           tenant_id?: string | null
           assigned_to_id?: string | null
           created_at?: string
@@ -268,6 +275,7 @@ export type Database = {
           notes?: string | null
           images?: string[]
           property_id?: string
+          unit_id?: string | null
           tenant_id?: string | null
           assigned_to_id?: string | null
           created_at?: string

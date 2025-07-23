@@ -121,15 +121,15 @@ export default function TenantVerifyPage() {
       }
 
       // 2. Create Supabase Auth user (enables login)
-      const { error: signUpError } = await auth.signUp(invitation!.email, password, {
+      const { user } = await auth.signUp(invitation!.email, password, {
         first_name: invitation!.first_name,
         last_name: invitation!.last_name,
         phone: invitation!.phone,
         role: 'TENANT'
       })
 
-      if (signUpError) {
-        setError(signUpError.message || 'Failed to create user account')
+      if (!user) {
+        setError('Failed to create user account')
         setIsVerifying(false)
         return
       }
