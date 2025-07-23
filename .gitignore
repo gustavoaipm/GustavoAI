@@ -109,3 +109,6 @@ jspm_packages/
 # Temporary files
 *.tmp
 *.temp
+
+# Ignore Supabase local config and generated files
+supabase/

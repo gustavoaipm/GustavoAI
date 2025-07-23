@@ -50,7 +50,7 @@ export const authMiddleware = async (
     }
 
     req.user = user;
-    next();
+    return next();
   } catch (error) {
     if (error instanceof jwt.JsonWebTokenError) {
       return res.status(401).json({ 
@@ -79,6 +79,6 @@ export const requireRole = (roles: string[]) => {
       });
     }
 
-    next();
+    return next();
   };
 }; 

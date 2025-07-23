@@ -2,38 +2,33 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
+import { notifications } from '@/lib/supabase-utils'
+import DashboardNav from '@/app/components/DashboardNav'
 import { 
   BellIcon, 
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
+  ExclamationTriangleIcon, 
   InformationCircleIcon,
-  XMarkIcon,
-  EyeIcon,
-  TrashIcon
+  CheckIcon,
+  TrashIcon,
+  CalendarIcon
 } from '@heroicons/react/24/outline'
-import { useAuth } from '@/lib/auth-context'
 
 interface Notification {
   id: string
   title: string
   message: string
   type: string
-  isRead: boolean
-  createdAt: string
+  is_read: boolean
+  created_at: string
 }
 
 export default function NotificationsPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
-  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [notificationsList, setNotifications] = useState<Notification[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [filter, setFilter] = useState('all')
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login')
-    }
-  }, [user, loading, router])
 
   useEffect(() => {
     if (user) {
@@ -43,15 +38,8 @@ export default function NotificationsPage() {
 
   const fetchNotifications = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/notifications`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setNotifications(data)
-      }
+      const data = await notifications.getAll()
+      setNotifications(data)
     } catch (error) {
       console.error('Error fetching notifications:', error)
     } finally {
@@ -61,22 +49,14 @@ export default function NotificationsPage() {
 
   const markAsRead = async (notificationId: string) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/notifications/${notificationId}/read`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      if (response.ok) {
-        setNotifications(prev => 
-          prev.map(notification => 
-            notification.id === notificationId 
-              ? { ...notification, isRead: true }
-              : notification
-          )
+      await notifications.markAsRead(notificationId)
+      setNotifications(prev => 
+        prev.map(notification => 
+          notification.id === notificationId 
+            ? { ...notification, is_read: true }
+            : notification
         )
-      }
+      )
     } catch (error) {
       console.error('Error marking notification as read:', error)
     }
@@ -84,15 +64,8 @@ export default function NotificationsPage() {
 
   const deleteNotification = async (notificationId: string) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/notifications/${notificationId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      })
-      if (response.ok) {
-        setNotifications(prev => prev.filter(notification => notification.id !== notificationId))
-      }
+      await notifications.delete(notificationId)
+      setNotifications(prev => prev.filter(notification => notification.id !== notificationId))
     } catch (error) {
       console.error('Error deleting notification:', error)
     }
@@ -136,15 +109,15 @@ export default function NotificationsPage() {
     }
   }
 
-  const filteredNotifications = notifications.filter(notification => {
+  const filteredNotifications = notificationsList.filter(notification => {
     if (filter === 'all') return true
-    if (filter === 'unread') return !notification.isRead
+    if (filter === 'unread') return !notification.is_read
     return notification.type === filter.toUpperCase()
   })
 
-  const unreadCount = notifications.filter(n => !n.isRead).length
-  const paymentNotifications = notifications.filter(n => n.type.includes('PAYMENT')).length
-  const maintenanceNotifications = notifications.filter(n => n.type.includes('MAINTENANCE')).length
+  const unreadCount = notificationsList.filter(n => !n.is_read).length
+  const paymentNotifications = notificationsList.filter(n => n.type.includes('PAYMENT')).length
+  const maintenanceNotifications = notificationsList.filter(n => n.type.includes('MAINTENANCE')).length
 
   if (loading || isLoading) {
     return (
@@ -163,6 +136,8 @@ export default function NotificationsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <DashboardNav />
+      
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -185,7 +160,7 @@ export default function NotificationsPage() {
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="card text-center">
-            <div className="text-3xl font-bold text-primary-600">{notifications.length}</div>
+            <div className="text-3xl font-bold text-primary-600">{notificationsList.length}</div>
             <div className="text-gray-600">Total Notifications</div>
           </div>
           <div className="card text-center">
@@ -234,8 +209,8 @@ export default function NotificationsPage() {
             {filteredNotifications.map((notification) => (
               <div 
                 key={notification.id} 
-                className={`card border-l-4 border-l-primary-600 ${getTypeColor(notification.type)} ${
-                  !notification.isRead ? 'ring-2 ring-primary-200' : ''
+                className={`card border-l-4 border-l-primary-500 ${getTypeColor(notification.type)} ${
+                  !notification.is_read ? 'bg-blue-50 border-blue-200' : ''
                 }`}
               >
                 <div className="flex items-start justify-between">
@@ -245,40 +220,36 @@ export default function NotificationsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <h3 className={`text-sm font-medium ${
-                          notification.isRead ? 'text-gray-700' : 'text-gray-900'
-                        }`}>
+                        <h3 className="text-sm font-medium text-gray-900">
                           {notification.title}
                         </h3>
-                        <span className="text-xs text-gray-500">
-                          {formatDate(notification.createdAt)}
-                        </span>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-gray-500">
+                            {formatDate(notification.created_at)}
+                          </span>
+                          {!notification.is_read && (
+                            <span className="inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
+                          )}
+                        </div>
                       </div>
-                      <p className={`mt-1 text-sm ${
-                        notification.isRead ? 'text-gray-600' : 'text-gray-800'
-                      }`}>
+                      <p className="mt-1 text-sm text-gray-600">
                         {notification.message}
                       </p>
-                      {!notification.isRead && (
-                        <span className="inline-block mt-2 px-2 py-1 text-xs font-medium bg-primary-100 text-primary-800 rounded-full">
-                          New
-                        </span>
-                      )}
                     </div>
                   </div>
                   <div className="flex items-center space-x-2 ml-4">
-                    {!notification.isRead && (
+                    {!notification.is_read && (
                       <button
                         onClick={() => markAsRead(notification.id)}
-                        className="btn-outline text-xs"
+                        className="text-gray-400 hover:text-green-600 transition-colors"
                         title="Mark as read"
                       >
-                        <CheckCircleIcon className="h-4 w-4" />
+                        <CheckIcon className="h-4 w-4" />
                       </button>
                     )}
                     <button
                       onClick={() => deleteNotification(notification.id)}
-                      className="btn-outline text-red-600 hover:bg-red-50 text-xs"
+                      className="text-gray-400 hover:text-red-600 transition-colors"
                       title="Delete notification"
                     >
                       <TrashIcon className="h-4 w-4" />
@@ -287,28 +258,6 @@ export default function NotificationsPage() {
                 </div>
               </div>
             ))}
-          </div>
-        )}
-
-        {/* Bulk Actions */}
-        {notifications.length > 0 && (
-          <div className="mt-8 flex justify-between items-center">
-            <div className="text-sm text-gray-600">
-              Showing {filteredNotifications.length} of {notifications.length} notifications
-            </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => {
-                  // Mark all as read
-                  notifications.forEach(n => {
-                    if (!n.isRead) markAsRead(n.id)
-                  })
-                }}
-                className="btn-secondary text-sm"
-              >
-                Mark All as Read
-              </button>
-            </div>
           </div>
         )}
       </div>

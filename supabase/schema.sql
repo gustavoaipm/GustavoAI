@@ -4,7 +4,8 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Create custom types/enums
 CREATE TYPE user_role AS ENUM ('LANDLORD', 'TENANT', 'ADMIN');
 CREATE TYPE property_type AS ENUM ('APARTMENT', 'HOUSE', 'CONDO', 'TOWNHOUSE', 'COMMERCIAL');
-CREATE TYPE property_status AS ENUM ('AVAILABLE', 'OCCUPIED', 'MAINTENANCE', 'UNAVAILABLE');
+CREATE TYPE property_status AS ENUM ('ACTIVE', 'INACTIVE', 'MAINTENANCE', 'UNAVAILABLE');
+CREATE TYPE unit_status AS ENUM ('AVAILABLE', 'OCCUPIED', 'MAINTENANCE', 'UNAVAILABLE', 'RESERVED');
 CREATE TYPE tenant_status AS ENUM ('ACTIVE', 'INACTIVE', 'EVICTED', 'MOVED_OUT');
 CREATE TYPE payment_type AS ENUM ('RENT', 'SECURITY_DEPOSIT', 'LATE_FEE', 'MAINTENANCE_FEE', 'UTILITY_FEE');
 CREATE TYPE payment_status AS ENUM ('PENDING', 'PAID', 'OVERDUE', 'CANCELLED');
@@ -34,16 +35,31 @@ CREATE TABLE public.properties (
     state TEXT NOT NULL,
     zip_code TEXT NOT NULL,
     property_type property_type NOT NULL,
-    bedrooms INTEGER NOT NULL,
-    bathrooms INTEGER NOT NULL,
-    square_feet INTEGER,
-    rent_amount DECIMAL(10,2) NOT NULL,
-    status property_status DEFAULT 'AVAILABLE',
+    total_units INTEGER DEFAULT 1,
+    status property_status DEFAULT 'ACTIVE',
     description TEXT,
     images TEXT[] DEFAULT '{}',
     owner_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create units table
+CREATE TABLE public.units (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    unit_number TEXT NOT NULL,
+    bedrooms INTEGER NOT NULL,
+    bathrooms INTEGER NOT NULL,
+    square_feet INTEGER,
+    rent_amount DECIMAL(10,2) NOT NULL,
+    status unit_status DEFAULT 'AVAILABLE',
+    description TEXT,
+    images TEXT[] DEFAULT '{}',
+    property_id UUID REFERENCES public.properties(id) ON DELETE CASCADE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    -- Ensure unique unit numbers within a property
+    UNIQUE(property_id, unit_number)
 );
 
 -- Create tenants table
@@ -61,7 +77,7 @@ CREATE TABLE public.tenants (
     lease_end DATE NOT NULL,
     rent_amount DECIMAL(10,2) NOT NULL,
     security_deposit DECIMAL(10,2) NOT NULL,
-    property_id UUID REFERENCES public.properties(id) ON DELETE CASCADE NOT NULL,
+    unit_id UUID REFERENCES public.units(id) ON DELETE CASCADE NOT NULL,
     landlord_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -79,7 +95,7 @@ CREATE TABLE public.payments (
     description TEXT,
     stripe_payment_id TEXT,
     tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE NOT NULL,
-    property_id UUID REFERENCES public.properties(id) ON DELETE CASCADE NOT NULL,
+    unit_id UUID REFERENCES public.units(id) ON DELETE CASCADE NOT NULL,
     landlord_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -102,6 +118,7 @@ CREATE TABLE public.maintenance (
     notes TEXT,
     images TEXT[] DEFAULT '{}',
     property_id UUID REFERENCES public.properties(id) ON DELETE CASCADE NOT NULL,
+    unit_id UUID REFERENCES public.units(id) ON DELETE SET NULL,
     tenant_id UUID REFERENCES public.tenants(id) ON DELETE SET NULL,
     assigned_to_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -136,17 +153,47 @@ CREATE TABLE public.vendors (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create tenant invitations table
+CREATE TABLE public.tenant_invitations (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    email TEXT NOT NULL,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    date_of_birth DATE,
+    emergency_contact TEXT,
+    emergency_phone TEXT,
+    lease_start DATE NOT NULL,
+    lease_end DATE NOT NULL,
+    rent_amount DECIMAL(10,2) NOT NULL,
+    security_deposit DECIMAL(10,2) NOT NULL,
+    unit_id UUID REFERENCES public.units(id) ON DELETE CASCADE NOT NULL,
+    landlord_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+    verification_token TEXT UNIQUE NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    is_verified BOOLEAN DEFAULT FALSE,
+    verified_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create indexes for better performance
 CREATE INDEX idx_properties_owner_id ON public.properties(owner_id);
-CREATE INDEX idx_tenants_property_id ON public.tenants(property_id);
+CREATE INDEX idx_units_property_id ON public.units(property_id);
+CREATE INDEX idx_units_status ON public.units(status);
+CREATE INDEX idx_tenants_unit_id ON public.tenants(unit_id);
 CREATE INDEX idx_tenants_landlord_id ON public.tenants(landlord_id);
 CREATE INDEX idx_payments_tenant_id ON public.payments(tenant_id);
-CREATE INDEX idx_payments_property_id ON public.payments(property_id);
+CREATE INDEX idx_payments_unit_id ON public.payments(unit_id);
 CREATE INDEX idx_payments_status ON public.payments(status);
 CREATE INDEX idx_maintenance_property_id ON public.maintenance(property_id);
+CREATE INDEX idx_maintenance_unit_id ON public.maintenance(unit_id);
 CREATE INDEX idx_maintenance_status ON public.maintenance(status);
 CREATE INDEX idx_notifications_user_id ON public.notifications(user_id);
 CREATE INDEX idx_notifications_is_read ON public.notifications(is_read);
+CREATE INDEX idx_tenant_invitations_email ON public.tenant_invitations(email);
+CREATE INDEX idx_tenant_invitations_token ON public.tenant_invitations(verification_token);
+CREATE INDEX idx_tenant_invitations_landlord_id ON public.tenant_invitations(landlord_id);
 
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -160,21 +207,25 @@ $$ language 'plpgsql';
 -- Create triggers for updated_at
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON public.users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_properties_updated_at BEFORE UPDATE ON public.properties FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_units_updated_at BEFORE UPDATE ON public.units FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_tenants_updated_at BEFORE UPDATE ON public.tenants FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_payments_updated_at BEFORE UPDATE ON public.payments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_maintenance_updated_at BEFORE UPDATE ON public.maintenance FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_vendors_updated_at BEFORE UPDATE ON public.vendors FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_tenant_invitations_updated_at BEFORE UPDATE ON public.tenant_invitations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Row Level Security (RLS) policies
 
 -- Enable RLS on all tables
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.properties ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.units ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.maintenance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vendors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tenant_invitations ENABLE ROW LEVEL SECURITY;
 
 -- Users policies
 CREATE POLICY "Users can view their own profile" ON public.users
@@ -202,43 +253,112 @@ CREATE POLICY "Landlords can update their own properties" ON public.properties
 CREATE POLICY "Landlords can delete their own properties" ON public.properties
     FOR DELETE USING (auth.uid() = owner_id);
 
+-- Units policies
+CREATE POLICY "Landlords can view units of their properties" ON public.units
+    FOR SELECT USING (EXISTS (
+        SELECT 1 FROM public.properties WHERE id = units.property_id AND owner_id = auth.uid()
+    ));
+
+CREATE POLICY "Landlords can insert units for their properties" ON public.units
+    FOR INSERT WITH CHECK (EXISTS (
+        SELECT 1 FROM public.properties WHERE id = units.property_id AND owner_id = auth.uid()
+    ));
+
+CREATE POLICY "Landlords can update units of their properties" ON public.units
+    FOR UPDATE USING (EXISTS (
+        SELECT 1 FROM public.properties WHERE id = units.property_id AND owner_id = auth.uid()
+    ));
+
+CREATE POLICY "Landlords can delete units of their properties" ON public.units
+    FOR DELETE USING (EXISTS (
+        SELECT 1 FROM public.properties WHERE id = units.property_id AND owner_id = auth.uid()
+    ));
+
 -- Tenants policies
-CREATE POLICY "Landlords can view tenants of their properties" ON public.tenants
-    FOR SELECT USING (auth.uid() = landlord_id);
+CREATE POLICY "Landlords can view tenants of their units" ON public.tenants
+    FOR SELECT USING (
+        landlord_id = auth.uid() OR EXISTS (
+            SELECT 1 FROM public.units u 
+            JOIN public.properties p ON u.property_id = p.id 
+            WHERE u.id = tenants.unit_id AND p.owner_id = auth.uid()
+        )
+    );
 
-CREATE POLICY "Landlords can insert tenants for their properties" ON public.tenants
-    FOR INSERT WITH CHECK (auth.uid() = landlord_id);
+CREATE POLICY "Landlords can insert tenants for their units" ON public.tenants
+    FOR INSERT WITH CHECK (
+        landlord_id = auth.uid() OR EXISTS (
+            SELECT 1 FROM public.units u 
+            JOIN public.properties p ON u.property_id = p.id 
+            WHERE u.id = tenants.unit_id AND p.owner_id = auth.uid()
+        )
+    );
 
-CREATE POLICY "Landlords can update tenants of their properties" ON public.tenants
-    FOR UPDATE USING (auth.uid() = landlord_id);
+CREATE POLICY "Landlords can update tenants of their units" ON public.tenants
+    FOR UPDATE USING (
+        landlord_id = auth.uid() OR EXISTS (
+            SELECT 1 FROM public.units u 
+            JOIN public.properties p ON u.property_id = p.id 
+            WHERE u.id = tenants.unit_id AND p.owner_id = auth.uid()
+        )
+    );
 
-CREATE POLICY "Landlords can delete tenants of their properties" ON public.tenants
-    FOR DELETE USING (auth.uid() = landlord_id);
+CREATE POLICY "Landlords can delete tenants of their units" ON public.tenants
+    FOR DELETE USING (
+        landlord_id = auth.uid() OR EXISTS (
+            SELECT 1 FROM public.units u 
+            JOIN public.properties p ON u.property_id = p.id 
+            WHERE u.id = tenants.unit_id AND p.owner_id = auth.uid()
+        )
+    );
 
 -- Payments policies
-CREATE POLICY "Landlords can view payments for their properties" ON public.payments
-    FOR SELECT USING (auth.uid() = landlord_id);
+CREATE POLICY "Landlords can view payments for their units" ON public.payments
+    FOR SELECT USING (EXISTS (
+        SELECT 1 FROM public.units u 
+        JOIN public.properties p ON u.property_id = p.id 
+        WHERE u.id = payments.unit_id AND p.owner_id = auth.uid()
+    ));
 
-CREATE POLICY "Landlords can insert payments for their properties" ON public.payments
-    FOR INSERT WITH CHECK (auth.uid() = landlord_id);
+CREATE POLICY "Landlords can insert payments for their units" ON public.payments
+    FOR INSERT WITH CHECK (EXISTS (
+        SELECT 1 FROM public.units u 
+        JOIN public.properties p ON u.property_id = p.id 
+        WHERE u.id = payments.unit_id AND p.owner_id = auth.uid()
+    ));
 
-CREATE POLICY "Landlords can update payments for their properties" ON public.payments
-    FOR UPDATE USING (auth.uid() = landlord_id);
+CREATE POLICY "Landlords can update payments for their units" ON public.payments
+    FOR UPDATE USING (EXISTS (
+        SELECT 1 FROM public.units u 
+        JOIN public.properties p ON u.property_id = p.id 
+        WHERE u.id = payments.unit_id AND p.owner_id = auth.uid()
+    ));
 
 -- Maintenance policies
-CREATE POLICY "Landlords can view maintenance for their properties" ON public.maintenance
+CREATE POLICY "Landlords can view maintenance for their properties and units" ON public.maintenance
     FOR SELECT USING (auth.uid() = assigned_to_id OR EXISTS (
         SELECT 1 FROM public.properties WHERE id = maintenance.property_id AND owner_id = auth.uid()
+    ) OR EXISTS (
+        SELECT 1 FROM public.units u 
+        JOIN public.properties p ON u.property_id = p.id 
+        WHERE u.id = maintenance.unit_id AND p.owner_id = auth.uid()
     ));
 
-CREATE POLICY "Landlords can insert maintenance for their properties" ON public.maintenance
+CREATE POLICY "Landlords can insert maintenance for their properties and units" ON public.maintenance
     FOR INSERT WITH CHECK (EXISTS (
         SELECT 1 FROM public.properties WHERE id = maintenance.property_id AND owner_id = auth.uid()
+    ) OR EXISTS (
+        SELECT 1 FROM public.units u 
+        JOIN public.properties p ON u.property_id = p.id 
+        WHERE u.id = maintenance.unit_id AND p.owner_id = auth.uid()
     ));
 
-CREATE POLICY "Landlords can update maintenance for their properties" ON public.maintenance
+CREATE POLICY "Landlords can update maintenance for their properties and units" ON public.maintenance
     FOR UPDATE USING (auth.uid() = assigned_to_id OR EXISTS (
         SELECT 1 FROM public.properties WHERE id = maintenance.property_id AND owner_id = auth.uid()
+    ) OR EXISTS (
+        SELECT 1 FROM public.units u 
+        JOIN public.properties p ON u.property_id = p.id 
+        WHERE u.id = maintenance.unit_id AND p.owner_id = auth.uid()
     ));
 
 -- Notifications policies
@@ -251,6 +371,23 @@ CREATE POLICY "Users can update their own notifications" ON public.notifications
 -- Vendors policies (read-only for now, can be expanded)
 CREATE POLICY "Anyone can view vendors" ON public.vendors
     FOR SELECT USING (true);
+
+-- Tenant invitation policies
+CREATE POLICY "Tenant invitations are viewable by landlord" ON public.tenant_invitations
+    FOR SELECT USING (landlord_id = auth.uid());
+
+CREATE POLICY "Tenant invitations are insertable by landlord" ON public.tenant_invitations
+    FOR INSERT WITH CHECK (landlord_id = auth.uid());
+
+CREATE POLICY "Tenant invitations are updatable by landlord" ON public.tenant_invitations
+    FOR UPDATE USING (landlord_id = auth.uid());
+
+CREATE POLICY "Tenant invitations are deletable by landlord" ON public.tenant_invitations
+    FOR DELETE USING (landlord_id = auth.uid());
+
+-- Allow tenants to view their own invitation by token (for verification)
+CREATE POLICY "Tenant invitations are viewable by token" ON public.tenant_invitations
+    FOR SELECT USING (true); -- This will be filtered by token in the application
 
 -- Create function to handle user creation
 CREATE OR REPLACE FUNCTION public.handle_new_user()

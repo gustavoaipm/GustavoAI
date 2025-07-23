@@ -2,56 +2,75 @@ import { Router } from 'express';
 import { body, validationResult } from 'express-validator';
 import { prisma } from '../index';
 import { createError } from '../middleware/errorHandler';
+import { Request, Response, NextFunction } from 'express';
+
+// Extend Request to include user
+interface AuthRequest extends Request {
+  user: {
+    id: string;
+    // add other user properties if needed
+  };
+}
 
 const router = Router();
 
 // Get all properties for the authenticated user
-router.get('/', async (req: any, res, next) => {
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const user = (req as AuthRequest).user;
     const properties = await prisma.property.findMany({
-      where: { ownerId: req.user.id },
+      where: { ownerId: user.id },
       include: {
-        tenants: true,
+        units: {
+          include: {
+            tenants: true,
+            maintenance: {
+              where: { status: { not: 'COMPLETED' } }
+            }
+          }
+        },
         maintenance: {
           where: { status: { not: 'COMPLETED' } }
         }
       }
     });
-
-    res.json({ properties });
+    return res.json({ properties });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
 // Get single property
-router.get('/:id', async (req: any, res, next) => {
+router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const user = (req as AuthRequest).user;
     const { id } = req.params;
-
     const property = await prisma.property.findFirst({
       where: { 
         id,
-        ownerId: req.user.id 
+        ownerId: user.id 
       },
       include: {
-        tenants: true,
-        maintenance: true,
-        payments: {
-          include: { tenant: true }
-        }
+        units: {
+          include: {
+            tenants: true,
+            maintenance: true,
+            payments: {
+              include: { tenant: true }
+            }
+          }
+        },
+        maintenance: true
       }
     });
-
     if (!property) {
       return res.status(404).json({ 
         error: 'Property not found' 
       });
     }
-
-    res.json({ property });
+    return res.json({ property });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -63,13 +82,12 @@ router.post('/', [
   body('state').trim().notEmpty(),
   body('zipCode').trim().notEmpty(),
   body('propertyType').isIn(['APARTMENT', 'HOUSE', 'CONDO', 'TOWNHOUSE', 'COMMERCIAL']),
-  body('bedrooms').isInt({ min: 0 }),
-  body('bathrooms').isInt({ min: 0 }),
-  body('squareFeet').optional().isInt({ min: 0 }),
-  body('rentAmount').isFloat({ min: 0 }),
-  body('description').optional().trim()
-], async (req: any, res, next) => {
+  body('totalUnits').isInt({ min: 1 }),
+  body('description').optional().trim(),
+  body('units').isArray().optional()
+], async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const user = (req as AuthRequest).user;
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ 
@@ -77,7 +95,6 @@ router.post('/', [
         details: errors.array() 
       });
     }
-
     const {
       name,
       address,
@@ -85,13 +102,10 @@ router.post('/', [
       state,
       zipCode,
       propertyType,
-      bedrooms,
-      bathrooms,
-      squareFeet,
-      rentAmount,
-      description
+      totalUnits,
+      description,
+      units
     } = req.body;
-
     const property = await prisma.property.create({
       data: {
         name,
@@ -100,21 +114,36 @@ router.post('/', [
         state,
         zipCode,
         propertyType,
-        bedrooms,
-        bathrooms,
-        squareFeet,
-        rentAmount: parseFloat(rentAmount),
+        totalUnits,
         description,
-        ownerId: req.user.id
+        ownerId: user.id
       }
     });
-
-    res.status(201).json({ 
+    // If units are provided, create them
+    if (units && Array.isArray(units)) {
+      for (const unitData of units) {
+        await prisma.unit.create({
+          data: {
+            ...unitData,
+            propertyId: property.id,
+            rentAmount: parseFloat(unitData.rentAmount)
+          }
+        });
+      }
+    }
+    // Fetch the property with units
+    const propertyWithUnits = await prisma.property.findUnique({
+      where: { id: property.id },
+      include: {
+        units: true
+      }
+    });
+    return res.status(201).json({ 
       message: 'Property created successfully',
-      property 
+      property: propertyWithUnits
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -126,13 +155,11 @@ router.put('/:id', [
   body('state').optional().trim().notEmpty(),
   body('zipCode').optional().trim().notEmpty(),
   body('propertyType').optional().isIn(['APARTMENT', 'HOUSE', 'CONDO', 'TOWNHOUSE', 'COMMERCIAL']),
-  body('bedrooms').optional().isInt({ min: 0 }),
-  body('bathrooms').optional().isInt({ min: 0 }),
-  body('squareFeet').optional().isInt({ min: 0 }),
-  body('rentAmount').optional().isFloat({ min: 0 }),
+  body('totalUnits').optional().isInt({ min: 1 }),
   body('description').optional().trim()
-], async (req: any, res, next) => {
+], async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const user = (req as AuthRequest).user;
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ 
@@ -140,70 +167,59 @@ router.put('/:id', [
         details: errors.array() 
       });
     }
-
     const { id } = req.params;
-
     // Check if property exists and belongs to user
     const existingProperty = await prisma.property.findFirst({
       where: { 
         id,
-        ownerId: req.user.id 
+        ownerId: user.id 
       }
     });
-
     if (!existingProperty) {
       return res.status(404).json({ 
         error: 'Property not found' 
       });
     }
-
     const updateData = { ...req.body };
-    if (updateData.rentAmount) {
-      updateData.rentAmount = parseFloat(updateData.rentAmount);
-    }
-
     const property = await prisma.property.update({
       where: { id },
       data: updateData
     });
-
-    res.json({ 
+    return res.json({ 
       message: 'Property updated successfully',
       property 
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
 // Delete property
-router.delete('/:id', async (req: any, res, next) => {
+router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const user = (req as AuthRequest).user;
     const { id } = req.params;
-
     // Check if property exists and belongs to user
-    const property = await prisma.property.findFirst({
+    const existingProperty = await prisma.property.findFirst({
       where: { 
         id,
-        ownerId: req.user.id 
+        ownerId: user.id 
       }
     });
-
-    if (!property) {
+    if (!existingProperty) {
       return res.status(404).json({ 
         error: 'Property not found' 
       });
     }
-
+    // Delete property and related units, maintenance, etc. (if cascading is set up)
     await prisma.property.delete({
       where: { id }
     });
-
-    res.json({ 
+    return res.json({ 
       message: 'Property deleted successfully' 
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 

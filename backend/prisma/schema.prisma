@@ -18,6 +18,7 @@ model User {
   lastName  String
   phone     String?
   role      UserRole @default(LANDLORD)
+  isTenant  Boolean  @default(false) // Track if user is also a tenant
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -39,11 +40,7 @@ model Property {
   state       String
   zipCode     String
   propertyType PropertyType
-  bedrooms    Int
-  bathrooms   Int
-  squareFeet  Int?
-  rentAmount  Decimal  @db.Decimal(10, 2)
-  status      PropertyStatus @default(AVAILABLE)
+  totalUnits  Int      @default(1) // Total number of units in the property
   description String?
   images      String[] // URLs to property images
   createdAt   DateTime @default(now())
@@ -52,11 +49,33 @@ model Property {
   // Relations
   ownerId     String
   owner       User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  units       Unit[]
+  maintenance Maintenance[]
+
+  @@map("properties")
+}
+
+model Unit {
+  id          String   @id @default(cuid())
+  unitNumber  String   // e.g., "A", "101", "2B"
+  bedrooms    Int
+  bathrooms   Int
+  squareFeet  Int?
+  rentAmount  Decimal  @db.Decimal(10, 2)
+  status      UnitStatus @default(AVAILABLE)
+  description String?
+  images      String[] // URLs to unit images
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   tenants     Tenant[]
   maintenance Maintenance[]
   payments    Payment[]
 
-  @@map("properties")
+  @@map("units")
 }
 
 model Tenant {
@@ -77,8 +96,8 @@ model Tenant {
   updatedAt DateTime @updatedAt
 
   // Relations
-  propertyId String
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId     String
+  unit       Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
   landlordId String
   landlord   User     @relation(fields: [landlordId], references: [id], onDelete: Cascade)
   payments   Payment[]
@@ -103,8 +122,8 @@ model Payment {
   // Relations
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  propertyId  String
-  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId      String
+  unit        Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
   landlordId  String
   landlord    User     @relation(fields: [landlordId], references: [id], onDelete: Cascade)
 
@@ -132,6 +151,8 @@ model Maintenance {
   // Relations
   propertyId  String
   property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId      String?
+  unit        Unit?    @relation(fields: [unitId], references: [id], onDelete: SetNull)
   tenantId    String?
   tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   assignedToId String?
@@ -189,10 +210,18 @@ enum PropertyType {
 }
 
 enum PropertyStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  UNAVAILABLE
+}
+
+enum UnitStatus {
   AVAILABLE
   OCCUPIED
   MAINTENANCE
   UNAVAILABLE
+  RESERVED
 }
 
 enum TenantStatus {

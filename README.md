@@ -11,6 +11,7 @@ An intelligent property management platform that automates tenant management, re
 - **Vendor Coordination**: Automatic vendor finding and communication for maintenance services
 - **Comprehensive Analytics**: AI-generated insights on property performance and trends
 - **Smart Notifications**: Intelligent alerts for important property events
+- **Address Autocomplete**: Google Maps integration for accurate property addresses
 
 ### For Tenants
 - **Easy Rent Payments**: Secure online payment processing
@@ -69,6 +70,7 @@ GustavoAI/
 ### Prerequisites
 - Node.js 18+ 
 - Supabase account
+- Google Maps API key (for address autocomplete)
 - npm or yarn
 
 ### 1. Set up Supabase
@@ -84,7 +86,28 @@ GustavoAI/
    - Copy and paste the contents of `supabase/schema.sql`
    - Run the SQL to create all tables and policies
 
-### 2. Frontend Setup
+### 2. Set up Google Maps API (for address autocomplete)
+
+1. **Create a Google Cloud project**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select an existing one
+
+2. **Enable the Places API**:
+   - In the Google Cloud Console, go to "APIs & Services" > "Library"
+   - Search for "Places API" and enable it
+
+3. **Create API credentials**:
+   - Go to "APIs & Services" > "Credentials"
+   - Click "Create Credentials" > "API Key"
+   - Copy your API key
+
+4. **Restrict the API key** (recommended):
+   - Click on your API key to edit it
+   - Under "Application restrictions", select "HTTP referrers"
+   - Add your domain (e.g., `localhost:3000/*` for development)
+   - Under "API restrictions", select "Restrict key" and choose "Places API"
+
+### 3. Frontend Setup
 
 1. **Install dependencies**:
    ```bash
@@ -96,6 +119,7 @@ GustavoAI/
    ```env
    NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
    ```
 
 3. **Start development server**:
@@ -112,6 +136,7 @@ GustavoAI/
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
 
 # Optional: AI and integrations
 NEXT_PUBLIC_OPENAI_API_KEY=your-openai-api-key
