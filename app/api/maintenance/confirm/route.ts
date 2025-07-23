@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabaseClient'
 import nodemailer from 'nodemailer'
 
 async function sendNotificationEmail(to: string, subject: string, html: string) {

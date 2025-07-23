@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
 import nodemailer from 'nodemailer'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabaseClient'
 
 async function assignVendor(serviceType: string) {
   // Find an active vendor whose services array includes the requested serviceType

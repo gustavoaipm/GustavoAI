@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { tenants } from '@/lib/supabase-utils'
 import { tenantInvitations } from '@/lib/supabase-utils'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabaseClient'
 import DashboardNav from '@/app/components/DashboardNav'
 import { 
   UserGroupIcon, 

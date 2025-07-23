@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { tenants } from '@/lib/supabase-utils'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabaseClient'
 import DashboardNav from '@/app/components/DashboardNav'
 import { 
   UserGroupIcon, 

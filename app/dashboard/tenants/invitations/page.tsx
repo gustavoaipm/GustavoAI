@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { tenantInvitations } from '@/lib/supabase-utils'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabaseClient'
 import DashboardNav from '@/app/components/DashboardNav'
 import { 
   EnvelopeIcon, 
