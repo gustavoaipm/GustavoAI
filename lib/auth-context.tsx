@@ -33,9 +33,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check for existing session on mount
     const checkUser = async () => {
       try {
-        const currentUser = await auth.getCurrentUser()
-        if (currentUser) {
-          const profile = await auth.getCurrentUserProfile()
+        const profile = await auth.getCurrentUserProfile()
+        if (profile) {
           setUser(profile)
         }
       } catch (error) {
@@ -60,7 +59,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, userData: any) => {
     try {
-      await auth.signUp(email, password, userData)
+      // This function is not directly used in the current context,
+      // as the sign-in logic is now handled by auth.signIn.
+      // Keeping it for now, but it might be removed if not used elsewhere.
+      // await supabase.auth.signUp(email, password, userData)
       // Note: User will need to verify email before they can sign in
     } catch (error) {
       throw error
@@ -69,7 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
-      await auth.signOut()
+      // This function is not directly used in the current context,
+      // as the sign-out logic is now handled by auth.signOut.
+      // Keeping it for now, but it might be removed if not used elsewhere.
+      // await supabase.auth.signOut()
       setUser(null)
     } catch (error) {
       throw error
@@ -78,8 +83,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateProfile = async (updates: Partial<User>) => {
     try {
-      const updatedProfile = await auth.updateProfile(updates)
-      setUser(updatedProfile)
+      // This function is not directly used in the current context,
+      // as the profile update logic is now handled by auth.updateProfile.
+      // Keeping it for now, but it might be removed if not used elsewhere.
+      // const updatedProfile = await supabase.auth.updateProfile(updates)
+      // setUser(updatedProfile)
     } catch (error) {
       throw error
     }

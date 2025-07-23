@@ -8,7 +8,7 @@ import { units } from '@/lib/supabase-utils'
 import DashboardNav from '@/app/components/DashboardNav'
 import { HomeIcon, MapPinIcon, BuildingOfficeIcon, PlusIcon, DocumentDuplicateIcon, TrashIcon } from '@heroicons/react/24/outline'
 import GoogleAddressAutocomplete from '@/app/components/GoogleAddressAutocomplete'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabaseClient'
 
 interface PropertyFormData {
   name: string
@@ -182,11 +182,6 @@ export default function AddPropertyPage() {
         property_type: formData.propertyType,
         description: formData.description,
         total_units: formData.totalUnits,
-        // Use the first unit as a template for property-level fields, or set defaults
-        bedrooms: unitList[0]?.bedrooms || 1,
-        bathrooms: unitList[0]?.bathrooms || 1,
-        square_feet: unitList[0]?.square_feet || 0,
-        rent_amount: unitList[0]?.rent_amount ? parseFloat(unitList[0].rent_amount.toString()) : 0,
         status: 'AVAILABLE' as 'AVAILABLE',
         images: [],
         owner_id: '', // will be set by backend

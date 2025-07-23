@@ -102,6 +102,10 @@ export default function NewMaintenanceRequestPage() {
         vendor_phone: null,
         vendor_email: null,
         assigned_to_id: null,
+        confirmation_token: null,
+        preferred_times: form.preferred_times,
+        vendor_id: null,
+        scheduled_time: null,
       })
       
       setSuccess(true)

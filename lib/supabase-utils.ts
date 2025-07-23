@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { supabase } from './supabaseClient'
 import type { Database } from './supabase'
 
 // Type helpers
@@ -81,7 +81,7 @@ export const auth = {
   },
 
   // Get current user
-  getCurrentUser: async () => {
+  getUser: async () => {
     const { data: { user }, error } = await supabase.auth.getUser()
     if (error) throw error
     return user
