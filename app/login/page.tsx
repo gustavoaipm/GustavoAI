@@ -176,6 +176,7 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {/*
             <div className="mt-6">
               <button
                 type="button"
@@ -202,6 +203,7 @@ export default function LoginPage() {
                 Sign in with Google
               </button>
             </div>
+            */}
           </div>
         </div>
       </div>

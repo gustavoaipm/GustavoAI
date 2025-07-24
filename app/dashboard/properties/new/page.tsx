@@ -171,6 +171,7 @@ export default function AddPropertyPage() {
     e.preventDefault()
     setIsSubmitting(true)
 
+    let property = null;
     try {
       // Create property using Supabase
       const propertyData = {
@@ -185,9 +186,9 @@ export default function AddPropertyPage() {
         status: 'AVAILABLE' as 'AVAILABLE',
         images: [],
         owner_id: '', // will be set by backend
-      }
+      };
 
-      const property = await properties.create(propertyData)
+      property = await properties.create(propertyData);
 
       // If units are provided, create them using the units utility
       if (unitList && unitList.length > 0) {
@@ -201,16 +202,24 @@ export default function AddPropertyPage() {
             rent_amount: parseFloat(unitData.rent_amount.toString()),
             status: 'AVAILABLE',
             description: unitData.description,
-          })
+          });
         }
       }
 
-      router.push('/dashboard/properties')
+      router.push('/dashboard/properties');
     } catch (error) {
-      console.error('Error creating property:', error)
-      alert('Failed to create property. Please try again.')
+      // If property was created but units failed, delete the property
+      if (property && property.id) {
+        try {
+          await properties.delete(property.id);
+        } catch (deleteError) {
+          console.error('Failed to rollback property:', deleteError);
+        }
+      }
+      console.error('Error creating property or units:', error);
+      alert('Failed to create property or units. Please try again.');
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
   }
 
