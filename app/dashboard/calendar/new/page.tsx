@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import DashboardNav from "@/app/components/DashboardNav"
 import { maintenance, payments, properties } from '@/lib/supabase-utils'
 import { useAuth } from '@/lib/auth-context'
+import { supabase } from '@/lib/supabaseClient'
 
 const EVENT_TYPES = [
   { value: "maintenance", label: "Maintenance" },
@@ -31,12 +32,28 @@ export default function NewCalendarEventPage() {
   const [success, setSuccess] = useState(false)
   const [propertiesList, setProperties] = useState<any[]>([])
   const [units, setUnits] = useState<any[]>([])
+  // Add tenantId state and effect to look up tenant id by user email
+  const [tenantId, setTenantId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
       fetchProperties()
     }
   }, [user])
+
+  useEffect(() => {
+    const fetchTenantId = async () => {
+      if (user) {
+        const { data: tenant } = await supabase
+          .from('tenants')
+          .select('id')
+          .eq('email', user.email)
+          .single();
+        setTenantId(tenant ? tenant.id : null);
+      }
+    };
+    fetchTenantId();
+  }, [user]);
 
   const fetchProperties = async () => {
     try {
@@ -71,11 +88,12 @@ export default function NewCalendarEventPage() {
           priority: "MEDIUM",
           status: "REQUESTED",
           property_id: form.property_id,
-          unit_id: form.unit_id || null,
-          tenant_id: user.id,
+          unit_id: form.unit_id, // always required
+          tenant_id: tenantId,   // null if not a tenant, otherwise the tenant's id
           notes: null,
           images: [],
-          scheduled_date: form.date,
+          scheduled_date: form.date && form.time ? `${form.date}T${form.time}` : form.date, // combine date and time
+          scheduled_time: null, // explicitly set to null
           completed_date: null,
           cost: null,
           vendor_name: null,
@@ -84,7 +102,6 @@ export default function NewCalendarEventPage() {
           assigned_to_id: null,
           confirmation_token: null,
           preferred_times: null,
-          scheduled_time: null,
           vendor_id: null,
         })
       } else if (form.type === "payment") {

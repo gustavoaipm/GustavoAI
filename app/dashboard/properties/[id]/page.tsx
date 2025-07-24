@@ -312,7 +312,7 @@ export default function PropertyDetailPage() {
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">Units</h2>
                 <button
-                  onClick={() => router.push(`/dashboard/properties/${propertyId}/units/new`)}
+                  onClick={() => router.push(`/dashboard/properties/${propertyId}/edit?addUnit=1`)}
                   className="btn-primary text-sm"
                 >
                   Add Unit
