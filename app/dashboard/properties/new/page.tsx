@@ -171,6 +171,18 @@ export default function AddPropertyPage() {
     e.preventDefault()
     setIsSubmitting(true)
 
+    // Validate unit requirements based on property type
+    const requiresUnits = ['APARTMENT', 'CONDO'].includes(formData.propertyType)
+    const hasValidUnits = unitList && unitList.length > 0 && unitList.some(unit => 
+      unit.unit_number && unit.bedrooms && unit.bathrooms && unit.rent_amount
+    )
+
+    if (requiresUnits && !hasValidUnits) {
+      alert('Apartments and condos must have at least one unit with complete information (unit number, bedrooms, bathrooms, and rent).')
+      setIsSubmitting(false)
+      return
+    }
+
     let property = null;
     try {
       // Create property using Supabase
@@ -190,21 +202,37 @@ export default function AddPropertyPage() {
 
       property = await properties.create(propertyData);
 
-      // If units are provided, create them using the units utility
-      if (unitList && unitList.length > 0) {
+      // Handle units based on property type
+      if (unitList && unitList.length > 0 && hasValidUnits) {
+        // Create provided units
         for (const unitData of unitList) {
-          await units.create({
-            property_id: property.id,
-            unit_number: unitData.unit_number,
-            bedrooms: unitData.bedrooms,
-            bathrooms: unitData.bathrooms,
-            square_feet: unitData.square_feet || undefined,
-            rent_amount: parseFloat(unitData.rent_amount.toString()),
-            status: 'AVAILABLE',
-            description: unitData.description,
-          });
+          if (unitData.unit_number && unitData.bedrooms && unitData.bathrooms && unitData.rent_amount) {
+            await units.create({
+              property_id: property.id,
+              unit_number: unitData.unit_number,
+              bedrooms: unitData.bedrooms,
+              bathrooms: unitData.bathrooms,
+              square_feet: unitData.square_feet || undefined,
+              rent_amount: parseFloat(unitData.rent_amount.toString()),
+              status: 'AVAILABLE',
+              description: unitData.description,
+            });
+          }
         }
+      } else if (['HOUSE', 'TOWNHOUSE'].includes(formData.propertyType)) {
+        // Create default unit for HOUSE/TOWNHOUSE without units
+        await units.create({
+          property_id: property.id,
+          unit_number: '1',
+          bedrooms: 1,
+          bathrooms: 1,
+          square_feet: undefined,
+          rent_amount: 0,
+          status: 'AVAILABLE',
+          description: 'Default unit representing the entire property',
+        });
       }
+      // For COMMERCIAL properties, no units are created if none provided
 
       router.push('/dashboard/properties');
     } catch (error) {
@@ -410,7 +438,7 @@ export default function AddPropertyPage() {
                 <input
                   type="number"
                   id="totalUnits"
-                  min="1"
+                  min="0"
                   required
                   value={formData.totalUnits}
                   onChange={(e) => updateTotalUnits(parseInt(e.target.value))}

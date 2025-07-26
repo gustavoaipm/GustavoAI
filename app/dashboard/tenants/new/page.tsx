@@ -28,6 +28,7 @@ interface Unit {
     name: string
     address: string
   }
+  is_entire_property?: boolean
 }
 
 interface TenantFormData {
@@ -116,6 +117,9 @@ export default function AddTenantPage() {
 
       if (!selectedUnit) throw new Error('No unit selected')
 
+      // Determine if this is an entire property assignment
+      const isEntireProperty = selectedUnit.is_entire_property
+
       // Create tenant invitation
       const invitation = await tenantInvitations.create({
         email: formData.email,
@@ -129,7 +133,7 @@ export default function AddTenantPage() {
         lease_end: formData.lease_end,
         rent_amount: parseFloat(formData.rent_amount.toString()),
         security_deposit: parseFloat(formData.security_deposit.toString()),
-        unit_id: selectedUnit.id,
+        unit_id: isEntireProperty ? null : selectedUnit.id, // null for entire property
         landlord_id: currentUser.id
       })
 
@@ -148,7 +152,7 @@ export default function AddTenantPage() {
             first_name: formData.first_name,
             last_name: formData.last_name,
             property_name: selectedUnit.property.name,
-            unit_number: selectedUnit.unit_number,
+            unit_number: isEntireProperty ? 'Entire Property' : selectedUnit.unit_number,
             landlord_name: `${currentUser.user_metadata?.first_name || 'Property Manager'} ${currentUser.user_metadata?.last_name || ''}`,
             verification_url: verificationUrl,
             expires_at: invitation.expires_at

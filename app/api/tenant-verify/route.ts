@@ -136,63 +136,68 @@ export async function POST(request: NextRequest) {
 
     console.log('Tenant created successfully:', tenant.id)
 
-    // Update unit status to occupied
-    console.log('Updating unit status...')
-    const { error: unitError } = await supabaseAdmin
-      .from('units')
-      .update({ status: 'OCCUPIED' })
-      .eq('id', invitation.unit_id)
+    // Only update unit status and property counts if unit_id is provided
+    if (invitation.unit_id) {
+      // Update unit status to occupied
+      console.log('Updating unit status...')
+      const { error: unitError } = await supabaseAdmin
+        .from('units')
+        .update({ status: 'OCCUPIED' })
+        .eq('id', invitation.unit_id)
 
-    if (unitError) {
-      console.log('Error updating unit status:', unitError)
-      return NextResponse.json(
-        { error: 'Failed to update unit status' },
-        { status: 500 }
-      )
-    }
+      if (unitError) {
+        console.log('Error updating unit status:', unitError)
+        return NextResponse.json(
+          { error: 'Failed to update unit status' },
+          { status: 500 }
+        )
+      }
 
-    // Get the property_id for the unit to update available units count
-    console.log('Updating property unit count...')
-    const { data: unit, error: fetchUnitError } = await supabaseAdmin
-      .from('units')
-      .select('property_id')
-      .eq('id', invitation.unit_id)
-      .single()
-
-    if (fetchUnitError) {
-      console.log('Error fetching unit info:', fetchUnitError)
-      return NextResponse.json(
-        { error: 'Failed to fetch unit information' },
-        { status: 500 }
-      )
-    }
-
-    // Update the property's available units count
-    if (unit && unit.property_id) {
-      // Get current property
-      const { data: property, error: propertyError } = await supabaseAdmin
-        .from('properties')
-        .select('total_units, available_units')
-        .eq('id', unit.property_id)
+      // Get the property_id for the unit to update available units count
+      console.log('Updating property unit count...')
+      const { data: unit, error: fetchUnitError } = await supabaseAdmin
+        .from('units')
+        .select('property_id')
+        .eq('id', invitation.unit_id)
         .single()
 
-      if (!propertyError && property) {
-        // Count occupied units
-        const { count: occupiedUnits, error: countError } = await supabaseAdmin
-          .from('units')
-          .select('*', { count: 'exact', head: true })
-          .eq('property_id', unit.property_id)
-          .eq('status', 'OCCUPIED')
+      if (fetchUnitError) {
+        console.log('Error fetching unit info:', fetchUnitError)
+        return NextResponse.json(
+          { error: 'Failed to fetch unit information' },
+          { status: 500 }
+        )
+      }
 
-        if (!countError) {
-          const availableUnits = (property.total_units || 0) - (occupiedUnits || 0)
-          
-          await supabaseAdmin
-            .from('properties')
-            .update({ available_units: availableUnits })
-            .eq('id', unit.property_id)
+      // Update the property's available units count
+      if (unit && unit.property_id) {
+        // Get current property
+        const { data: property, error: propertyError } = await supabaseAdmin
+          .from('properties')
+          .select('total_units, available_units')
+          .eq('id', unit.property_id)
+          .single()
+
+        if (!propertyError && property) {
+          // Count occupied units
+          const { count: occupiedUnits, error: countError } = await supabaseAdmin
+            .from('units')
+            .select('*', { count: 'exact', head: true })
+            .eq('property_id', unit.property_id)
+            .eq('status', 'OCCUPIED')
+
+          if (!countError) {
+            const availableUnits = (property.total_units || 0) - (occupiedUnits || 0)
+            
+            await supabaseAdmin
+              .from('properties')
+              .update({ available_units: availableUnits })
+              .eq('id', unit.property_id)
+          }
         }
       }
+    } else {
+      console.log('Tenant assigned to entire property (no specific unit)')
     }
 
     console.log('Tenant verification completed successfully')
