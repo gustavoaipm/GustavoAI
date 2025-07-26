@@ -158,8 +158,9 @@ export default function NewMaintenanceRequestPage() {
         )}
         <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded shadow">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
             <textarea
+              id="description"
               required
               className="form-textarea"
               rows={3}
@@ -169,8 +170,9 @@ export default function NewMaintenanceRequestPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Property *</label>
+            <label htmlFor="property_id" className="block text-sm font-medium text-gray-700 mb-2">Property *</label>
             <select
+              id="property_id"
               required
               className="form-select"
               value={form.property_id}
@@ -185,8 +187,9 @@ export default function NewMaintenanceRequestPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Unit *</label>
+            <label htmlFor="unit_id" className="block text-sm font-medium text-gray-700 mb-2">Unit *</label>
             <select
+              id="unit_id"
               required
               className="form-select"
               value={form.unit_id}
@@ -203,8 +206,9 @@ export default function NewMaintenanceRequestPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
+            <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
             <input
+              id="date"
               type="date"
               required
               className="form-input"
@@ -213,8 +217,9 @@ export default function NewMaintenanceRequestPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Time *</label>
+            <label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-2">Time *</label>
             <input
+              id="time"
               type="time"
               required
               className="form-input"
@@ -223,8 +228,9 @@ export default function NewMaintenanceRequestPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Service Type *</label>
+            <label htmlFor="service_type" className="block text-sm font-medium text-gray-700 mb-2">Service Type *</label>
             <select
+              id="service_type"
               required
               className="form-select"
               value={form.service_type}
@@ -238,10 +244,11 @@ export default function NewMaintenanceRequestPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Times *</label>
+            <label htmlFor="preferred_times_0" className="block text-sm font-medium text-gray-700 mb-2">Preferred Times *</label>
             {form.preferred_times.map((time, idx) => (
               <div key={idx} className="flex items-center space-x-2 mb-2">
                 <input
+                  id={`preferred_times_${idx}`}
                   type="datetime-local"
                   required
                   className="form-input"
