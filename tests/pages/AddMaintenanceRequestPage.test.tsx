@@ -74,7 +74,10 @@ describe('NewMaintenanceRequestPage', () => {
     fireEvent.change(screen.getByLabelText(/Date/i), { target: { value: '2024-08-01' } });
     fireEvent.change(screen.getByLabelText('Time *'), { target: { value: '10:00' } });
     fireEvent.change(screen.getByLabelText(/Service Type/i), { target: { value: 'CLEANING' } });
-    fireEvent.change(screen.getAllByLabelText(/Preferred Times/i)[0].parentElement.querySelector('input')!, { target: { value: '2024-08-01T10:00' } });
+    const preferredTimesInput = screen.getAllByLabelText(/Preferred Times/i)[0].parentElement?.querySelector('input');
+    if (preferredTimesInput) {
+      fireEvent.change(preferredTimesInput, { target: { value: '2024-08-01T10:00' } });
+    }
 
     // Submit the form
     fireEvent.click(screen.getByRole('button', { name: /Submit Request/i }));

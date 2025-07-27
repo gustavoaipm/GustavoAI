@@ -56,7 +56,7 @@ export default function MaintenancePage() {
     }
   }
 
-  const handleStatusUpdate = async (requestId: string, newStatus: string) => {
+  const handleStatusUpdate = async (requestId: string, newStatus: "REQUESTED" | "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED") => {
     setUpdatingId(requestId)
     try {
       await maintenance.update(requestId, { 
@@ -100,7 +100,7 @@ export default function MaintenancePage() {
     return !['COMPLETED', 'CANCELLED'].includes(currentStatus)
   }
 
-  const getNextStatus = (currentStatus: string) => {
+  const getNextStatus = (currentStatus: string): "REQUESTED" | "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | null => {
     switch (currentStatus) {
       case 'REQUESTED':
         return 'SCHEDULED'
@@ -203,12 +203,12 @@ export default function MaintenancePage() {
                             <select
                               className="text-xs border border-gray-300 rounded px-1 py-1 bg-white"
                               value={req.status}
-                              onChange={(e) => handleStatusUpdate(req.id, e.target.value)}
+                              onChange={(e) => handleStatusUpdate(req.id, e.target.value as "REQUESTED" | "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED")}
                               disabled={updatingId === req.id}
                             >
                               <option value={req.status}>{req.status}</option>
                               {getNextStatus(req.status) && (
-                                <option value={getNextStatus(req.status)}>
+                                <option value={getNextStatus(req.status) || ''}>
                                   {getNextStatus(req.status)?.toLowerCase().replace('_', ' ')}
                                 </option>
                               )}
@@ -253,7 +253,12 @@ export default function MaintenancePage() {
                               <>
                                 {getNextStatus(req.status) && (
                                   <button
-                                    onClick={() => handleStatusUpdate(req.id, getNextStatus(req.status)!)}
+                                    onClick={() => {
+                                      const nextStatus = getNextStatus(req.status)
+                                      if (nextStatus) {
+                                        handleStatusUpdate(req.id, nextStatus)
+                                      }
+                                    }}
                                     disabled={updatingId === req.id}
                                     className="btn-secondary flex items-center text-sm"
                                   >
