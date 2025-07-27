@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { properties, maintenance } from '@/lib/supabase-utils'
 import DashboardNav from "@/app/components/DashboardNav"
+import { supabase } from '@/lib/supabaseClient'
 
 const SERVICE_TYPES = [
   'CLEANING',
@@ -33,13 +34,32 @@ export default function NewMaintenanceRequestPage() {
     unit_id: "",
     service_type: SERVICE_TYPES[0],
     preferred_times: [""],
+    date: "",
+    time: "",
   })
+
+  // Add tenantId state and effect to look up tenant id by user email
+  const [tenantId, setTenantId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
       fetchProperties()
     }
   }, [user])
+
+  useEffect(() => {
+    const fetchTenantId = async () => {
+      if (user) {
+        const { data: tenant } = await supabase
+          .from('tenants')
+          .select('id')
+          .eq('email', user.email)
+          .single();
+        setTenantId(tenant ? tenant.id : null);
+      }
+    };
+    fetchTenantId();
+  }, [user]);
 
   const fetchProperties = async () => {
     try {
@@ -91,11 +111,12 @@ export default function NewMaintenanceRequestPage() {
         priority: 'MEDIUM',
         status: 'REQUESTED',
         property_id: form.property_id,
-        unit_id: form.unit_id || null,
-        tenant_id: user?.id || null,
+        unit_id: form.unit_id, // always required
+        tenant_id: tenantId,   // null if not a tenant, otherwise the tenant's id
         notes: `Preferred times: ${form.preferred_times.filter((t) => t).join(', ')}`,
         images: [],
-        scheduled_date: null,
+        scheduled_date: form.date && form.time ? `${form.date}T${form.time}` : form.date, // combine date and time
+        scheduled_time: null, // explicitly set to null
         completed_date: null,
         cost: null,
         vendor_name: null,
@@ -105,7 +126,6 @@ export default function NewMaintenanceRequestPage() {
         confirmation_token: null,
         preferred_times: form.preferred_times,
         vendor_id: null,
-        scheduled_time: null,
       })
       
       setSuccess(true)
@@ -115,6 +135,8 @@ export default function NewMaintenanceRequestPage() {
         unit_id: "",
         service_type: SERVICE_TYPES[0],
         preferred_times: [""],
+        date: "",
+        time: "",
       })
     } catch (err) {
       setError("Failed to submit request.")
@@ -136,8 +158,9 @@ export default function NewMaintenanceRequestPage() {
         )}
         <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded shadow">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
             <textarea
+              id="description"
               required
               className="form-textarea"
               rows={3}
@@ -147,8 +170,9 @@ export default function NewMaintenanceRequestPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Property *</label>
+            <label htmlFor="property_id" className="block text-sm font-medium text-gray-700 mb-2">Property *</label>
             <select
+              id="property_id"
               required
               className="form-select"
               value={form.property_id}
@@ -163,8 +187,9 @@ export default function NewMaintenanceRequestPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Unit *</label>
+            <label htmlFor="unit_id" className="block text-sm font-medium text-gray-700 mb-2">Unit *</label>
             <select
+              id="unit_id"
               required
               className="form-select"
               value={form.unit_id}
@@ -181,8 +206,31 @@ export default function NewMaintenanceRequestPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Service Type *</label>
+            <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
+            <input
+              id="date"
+              type="date"
+              required
+              className="form-input"
+              value={form.date}
+              onChange={(e) => handleChange("date", e.target.value)}
+            />
+          </div>
+          <div>
+            <label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-2">Time *</label>
+            <input
+              id="time"
+              type="time"
+              required
+              className="form-input"
+              value={form.time}
+              onChange={(e) => handleChange("time", e.target.value)}
+            />
+          </div>
+          <div>
+            <label htmlFor="service_type" className="block text-sm font-medium text-gray-700 mb-2">Service Type *</label>
             <select
+              id="service_type"
               required
               className="form-select"
               value={form.service_type}
@@ -196,10 +244,11 @@ export default function NewMaintenanceRequestPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Times *</label>
+            <label htmlFor="preferred_times_0" className="block text-sm font-medium text-gray-700 mb-2">Preferred Times *</label>
             {form.preferred_times.map((time, idx) => (
               <div key={idx} className="flex items-center space-x-2 mb-2">
                 <input
+                  id={`preferred_times_${idx}`}
                   type="datetime-local"
                   required
                   className="form-input"

@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { properties } from '@/lib/supabase-utils'
+import { units as unitsApi } from '@/lib/supabase-utils'
 import DashboardNav from '@/app/components/DashboardNav'
 import { 
   HomeIcon, 
@@ -25,6 +26,7 @@ interface PropertyFormData {
 }
 
 interface UnitFormData {
+  id?: string // add id for tracking
   unit_number: string
   bedrooms: number
   bathrooms: number
@@ -33,10 +35,17 @@ interface UnitFormData {
   description: string
 }
 
+declare global {
+  interface Window {
+    __unitAdded?: boolean;
+  }
+}
+
 export default function EditPropertyPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const propertyId = params.id as string
   
   const [formData, setFormData] = useState<PropertyFormData>({
@@ -68,6 +77,8 @@ export default function EditPropertyPage() {
     }
   }, [user, propertyId])
 
+  // (Rolled back) No automatic add unit on navigation
+
   const fetchProperty = async () => {
     try {
       const property = await properties.getById(propertyId)
@@ -86,6 +97,7 @@ export default function EditPropertyPage() {
       // Set units if they exist
       if (property.units && property.units.length > 0) {
         setUnits(property.units.map((unit: any) => ({
+          id: unit.id, // store id
           unit_number: unit.unit_number,
           bedrooms: unit.bedrooms,
           bathrooms: unit.bathrooms,
@@ -128,17 +140,20 @@ export default function EditPropertyPage() {
 
   const duplicateUnit = (index: number) => {
     const unitToDuplicate = units[index]
-    const newUnitNumber = `${units.length + 1}`
-    
+    // Find the next available unit number that is not a duplicate
+    let nextNumber = units.length + 1;
+    const existingNumbers = new Set(units.map(u => u.unit_number));
+    while (existingNumbers.has(String(nextNumber))) {
+      nextNumber++;
+    }
     setUnits(prev => [...prev, {
-      unit_number: newUnitNumber,
+      unit_number: String(nextNumber),
       bedrooms: unitToDuplicate.bedrooms,
       bathrooms: unitToDuplicate.bathrooms,
       square_feet: unitToDuplicate.square_feet,
       rent_amount: unitToDuplicate.rent_amount,
       description: unitToDuplicate.description
     }])
-    
     // Update total units count
     updateTotalUnits(units.length + 1)
   }
@@ -198,6 +213,15 @@ export default function EditPropertyPage() {
     e.preventDefault()
     setIsSubmitting(true)
 
+    // Prevent duplicate unit numbers
+    const unitNumbers = units.map(u => u.unit_number);
+    const hasDuplicateUnitNumbers = unitNumbers.length !== new Set(unitNumbers).size;
+    if (hasDuplicateUnitNumbers) {
+      alert('Each unit number must be unique within the property.');
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       // Update property
       await properties.update(propertyId, {
@@ -205,9 +229,52 @@ export default function EditPropertyPage() {
         total_units: units.length
       })
 
-      // Note: Unit updates would need to be handled separately
-      // For now, we'll just update the property data
-      
+      // Fetch current units from DB
+      const property = await properties.getById(propertyId)
+      const dbUnits = property.units || []
+
+      // Map of db unit ids
+      const dbUnitIds = dbUnits.map((u: any) => u.id)
+      // Map of form unit ids (may be undefined for new units)
+      const formUnitIds = units.map(u => u.id).filter(Boolean)
+
+      // Update or create units
+      for (let i = 0; i < units.length; i++) {
+        const unit = units[i]
+        if (unit.id) {
+          // Update existing unit
+          await unitsApi.update(unit.id, {
+            property_id: propertyId,
+            unit_number: unit.unit_number,
+            bedrooms: unit.bedrooms,
+            bathrooms: unit.bathrooms,
+            square_feet: unit.square_feet === '' ? undefined : unit.square_feet,
+            rent_amount: unit.rent_amount === '' ? 0 : (typeof unit.rent_amount === 'string' ? parseFloat(unit.rent_amount) : unit.rent_amount),
+            description: unit.description
+          })
+        } else {
+          // Create new unit
+          await unitsApi.create({
+            property_id: propertyId,
+            unit_number: unit.unit_number,
+            bedrooms: unit.bedrooms,
+            bathrooms: unit.bathrooms,
+            square_feet: unit.square_feet === '' ? undefined : unit.square_feet,
+            rent_amount: unit.rent_amount === '' ? 0 : (typeof unit.rent_amount === 'string' ? parseFloat(unit.rent_amount) : unit.rent_amount),
+            status: 'AVAILABLE',
+            description: unit.description
+          })
+        }
+      }
+
+      // Delete units that were removed
+      for (let i = 0; i < dbUnits.length; i++) {
+        const dbUnit = dbUnits[i]
+        if (!formUnitIds.includes(dbUnit.id)) {
+          await unitsApi.delete(dbUnit.id)
+        }
+      }
+
       router.push(`/dashboard/properties/${propertyId}`)
     } catch (error) {
       console.error('Error updating property:', error)
@@ -504,12 +571,10 @@ export default function EditPropertyPage() {
                         Monthly Rent *
                       </label>
                       <input
-                        type="number"
-                        min="0"
-                        step="0.01"
+                        type="text"
                         required
                         value={unit.rent_amount}
-                        onChange={(e) => handleUnitChange(index, 'rent_amount', e.target.value ? parseFloat(e.target.value) : '')}
+                        onChange={(e) => handleUnitChange(index, 'rent_amount', e.target.value)}
                         className="form-input"
                       />
                     </div>

@@ -42,6 +42,7 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState(new Date())
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -77,12 +78,13 @@ export default function CalendarPage() {
       // Convert maintenance to calendar events
       maintenanceData.forEach(maintenance => {
         if (maintenance.scheduled_date) {
+          const [datePart, timePart] = maintenance.scheduled_date.split('T');
           calendarEvents.push({
             id: `maintenance-${maintenance.id}`,
             title: maintenance.title,
             type: 'maintenance',
-            date: maintenance.scheduled_date,
-            time: '14:00',
+            date: datePart, // just the date part for calendar matching
+            time: timePart ? timePart.slice(0,5) : '14:00', // use actual time if present, fallback to 14:00
             description: maintenance.description,
             priority: maintenance.priority?.toLowerCase(),
             status: maintenance.status.toLowerCase(),
@@ -189,6 +191,18 @@ export default function CalendarPage() {
     if (!timeString) return ''
     return timeString
   }
+
+  // Add a helper to format time in 12-hour am/pm format
+  const formatTime12Hour = (timeString?: string) => {
+    if (!timeString) return '';
+    const [hourStr, minuteStr] = timeString.split(':');
+    let hour = parseInt(hourStr, 10);
+    const minute = minuteStr || '00';
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    hour = hour % 12;
+    if (hour === 0) hour = 12;
+    return `${hour}:${minute} ${ampm}`;
+  };
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear()
@@ -323,14 +337,14 @@ export default function CalendarPage() {
                       <div
                         key={event.id}
                         className={`text-xs p-1 rounded border ${getEventColor(event.type, event.priority)} cursor-pointer hover:opacity-80`}
-                        onClick={() => {
-                          // Handle event click
-                          console.log('Event clicked:', event)
-                        }}
+                        onClick={() => setSelectedEvent(event)}
                       >
-                        <div className="flex items-center space-x-1">
-                          {getEventIcon(event.type)}
-                          <span className="truncate">{event.title}</span>
+                        <div className="flex items-center justify-between space-x-1">
+                          <div className="flex items-center space-x-1">
+                            {getEventIcon(event.type)}
+                            <span className="truncate">{event.title}</span>
+                          </div>
+                          <span className="ml-2 text-xs text-gray-700 font-semibold whitespace-nowrap">{formatTime12Hour(event.time)}</span>
                         </div>
                       </div>
                     ))}
@@ -345,43 +359,60 @@ export default function CalendarPage() {
             })}
           </div>
         </div>
+      </div>
 
-        {/* Upcoming Events */}
-        <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Events</h3>
-          <div className="space-y-3">
-            {events
-              .filter(event => new Date(event.date) >= new Date())
-              .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-              .slice(0, 5)
-              .map(event => (
-                <div key={event.id} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg">
-                  <div className={`p-2 rounded-full ${getEventColor(event.type, event.priority)}`}>
-                    {getEventIcon(event.type)}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-medium text-gray-900">{event.title}</h4>
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(event.status)}
-                        <span className="text-xs text-gray-500">
-                          {formatDate(event.date)}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-600 mt-1">{event.description}</p>
-                    {event.property && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        {event.property.name}
-                        {event.tenant && ` • ${event.tenant.first_name} ${event.tenant.last_name}`}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
+      {/* Event Details Modal */}
+      {selectedEvent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 relative">
+            <button
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+              onClick={() => setSelectedEvent(null)}
+              aria-label="Close"
+            >
+              &times;
+            </button>
+            <div className="flex items-center mb-4">
+              {getEventIcon(selectedEvent.type)}
+              <h2 className="ml-2 text-xl font-semibold text-gray-900">{selectedEvent.title}</h2>
+            </div>
+            <div className="mb-2">
+              <span className="font-medium">Type:</span> {selectedEvent.type.charAt(0).toUpperCase() + selectedEvent.type.slice(1)}
+            </div>
+            <div className="mb-2">
+              <span className="font-medium">Date:</span> {formatDate(selectedEvent.date)}
+            </div>
+            <div className="mb-2">
+              <span className="font-medium">Time:</span> {formatTime12Hour(selectedEvent.time)}
+            </div>
+            {selectedEvent.description && (
+              <div className="mb-2">
+                <span className="font-medium">Description:</span> {selectedEvent.description}
+              </div>
+            )}
+            {selectedEvent.status && (
+              <div className="mb-2">
+                <span className="font-medium">Status:</span> {selectedEvent.status.charAt(0).toUpperCase() + selectedEvent.status.slice(1)}
+              </div>
+            )}
+            {selectedEvent.priority && (
+              <div className="mb-2">
+                <span className="font-medium">Priority:</span> {selectedEvent.priority.charAt(0).toUpperCase() + selectedEvent.priority.slice(1)}
+              </div>
+            )}
+            {selectedEvent.property && (
+              <div className="mb-2">
+                <span className="font-medium">Property:</span> {selectedEvent.property.name}
+              </div>
+            )}
+            {selectedEvent.tenant && (
+              <div className="mb-2">
+                <span className="font-medium">Tenant:</span> {selectedEvent.tenant.first_name} {selectedEvent.tenant.last_name}
+              </div>
+            )}
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 } 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import DashboardNav from "@/app/components/DashboardNav"
 import { maintenance, payments, properties } from '@/lib/supabase-utils'
 import { useAuth } from '@/lib/auth-context'
+import { supabase } from '@/lib/supabaseClient'
 
 const EVENT_TYPES = [
   { value: "maintenance", label: "Maintenance" },
@@ -12,6 +13,20 @@ const EVENT_TYPES = [
   { value: "inspection", label: "Inspection" },
   { value: "lease", label: "Lease" },
 ]
+
+const MAINTENANCE_TYPES = [
+  'CLEANING',
+  'REPAIR',
+  'INSPECTION',
+  'PEST_CONTROL',
+  'HVAC',
+  'PLUMBING',
+  'ELECTRICAL',
+  'LANDSCAPING',
+  'OTHER'
+] as const
+
+type MaintenanceType = typeof MAINTENANCE_TYPES[number]
 
 export default function NewCalendarEventPage() {
   const router = useRouter()
@@ -25,18 +40,35 @@ export default function NewCalendarEventPage() {
     property_id: "",
     unit_id: "",
     amount: "",
+    maintenance_type: "OTHER" as MaintenanceType,
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
   const [propertiesList, setProperties] = useState<any[]>([])
   const [units, setUnits] = useState<any[]>([])
+  // Add tenantId state and effect to look up tenant id by user email
+  const [tenantId, setTenantId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
       fetchProperties()
     }
   }, [user])
+
+  useEffect(() => {
+    const fetchTenantId = async () => {
+      if (user) {
+        const { data: tenant } = await supabase
+          .from('tenants')
+          .select('id')
+          .eq('email', user.email)
+          .single();
+        setTenantId(tenant ? tenant.id : null);
+      }
+    };
+    fetchTenantId();
+  }, [user]);
 
   const fetchProperties = async () => {
     try {
@@ -53,7 +85,16 @@ export default function NewCalendarEventPage() {
   }
 
   const handleChange = (field: string, value: any) => {
-    setForm((prev) => ({ ...prev, [field]: value }))
+    setForm((prev) => {
+      const newForm = { ...prev, [field]: value }
+      
+      // Auto-set maintenance type to INSPECTION when event type is inspection
+      if (field === "type" && value === "inspection") {
+        newForm.maintenance_type = "INSPECTION" as MaintenanceType
+      }
+      
+      return newForm
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -63,19 +104,24 @@ export default function NewCalendarEventPage() {
     setSuccess(false)
     try {
       if (!user) throw new Error("Not authenticated")
-      if (form.type === "maintenance") {
+      
+      if (form.type === "maintenance" || form.type === "inspection") {
+        // Use the selected maintenance type, or default to INSPECTION for inspection events
+        const maintenanceType = form.type === "inspection" ? "INSPECTION" : form.maintenance_type
+        
         await maintenance.create({
           title: form.title,
           description: form.description,
-          type: "OTHER", // or map to a specific type if you want
+          type: maintenanceType,
           priority: "MEDIUM",
           status: "REQUESTED",
           property_id: form.property_id,
-          unit_id: form.unit_id || null,
-          tenant_id: user.id,
+          unit_id: form.unit_id, // always required
+          tenant_id: tenantId,   // null if not a tenant, otherwise the tenant's id
           notes: null,
           images: [],
-          scheduled_date: form.date,
+          scheduled_date: form.date && form.time ? `${form.date}T${form.time}` : form.date, // combine date and time
+          scheduled_time: null, // explicitly set to null
           completed_date: null,
           cost: null,
           vendor_name: null,
@@ -84,7 +130,6 @@ export default function NewCalendarEventPage() {
           assigned_to_id: null,
           confirmation_token: null,
           preferred_times: null,
-          scheduled_time: null,
           vendor_id: null,
         })
       } else if (form.type === "payment") {
@@ -102,8 +147,11 @@ export default function NewCalendarEventPage() {
           unit_id: form.unit_id || null,
           landlord_id: user.id,
         })
+      } else if (form.type === "lease") {
+        // TODO: Implement lease event handling
+        throw new Error("Lease events are not yet supported. Please use maintenance or payment events for now.")
       } else {
-        throw new Error("Only maintenance and payment events are supported for now.")
+        throw new Error("Unsupported event type.")
       }
       setSuccess(true)
       setTimeout(() => router.push("/dashboard/calendar"), 1200)
@@ -151,6 +199,23 @@ export default function NewCalendarEventPage() {
               ))}
             </select>
           </div>
+          {(form.type === "maintenance" || form.type === "inspection") && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Maintenance Type *</label>
+              <select
+                required
+                className="form-select"
+                value={form.maintenance_type}
+                onChange={(e) => handleChange("maintenance_type", e.target.value)}
+              >
+                {MAINTENANCE_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ')}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Property *</label>
             <select

@@ -42,9 +42,10 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { description, property_id, unit_id, preferred_times, service_type, tenant_id } = body
-    if (!description || !property_id || !preferred_times || !service_type || !tenant_id) {
+    if (!description || !property_id || !unit_id || !preferred_times || !service_type) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
+    // tenant_id is optional
 
     // Assign a vendor (by service_type)
     const vendor = await assignVendor(service_type)

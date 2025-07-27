@@ -39,7 +39,7 @@ const propertyTypes = [
 ]
 
 const states = [
-  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DC', 'DE', 'FL', 'GA',
   'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
   'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
   'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
@@ -171,6 +171,19 @@ export default function AddPropertyPage() {
     e.preventDefault()
     setIsSubmitting(true)
 
+    // Validate unit requirements based on property type
+    const requiresUnits = ['APARTMENT', 'CONDO'].includes(formData.propertyType)
+    const hasValidUnits = unitList && unitList.length > 0 && unitList.some(unit => 
+      unit.unit_number && unit.bedrooms && unit.bathrooms && unit.rent_amount
+    )
+
+    if (requiresUnits && !hasValidUnits) {
+      alert('Apartments and condos must have at least one unit with complete information (unit number, bedrooms, bathrooms, and rent).')
+      setIsSubmitting(false)
+      return
+    }
+
+    let property = null;
     try {
       // Create property using Supabase
       const propertyData = {
@@ -185,32 +198,56 @@ export default function AddPropertyPage() {
         status: 'AVAILABLE' as 'AVAILABLE',
         images: [],
         owner_id: '', // will be set by backend
-      }
+      };
 
-      const property = await properties.create(propertyData)
+      property = await properties.create(propertyData);
 
-      // If units are provided, create them using the units utility
-      if (unitList && unitList.length > 0) {
+      // Handle units based on property type
+      if (unitList && unitList.length > 0 && hasValidUnits) {
+        // Create provided units
         for (const unitData of unitList) {
-          await units.create({
-            property_id: property.id,
-            unit_number: unitData.unit_number,
-            bedrooms: unitData.bedrooms,
-            bathrooms: unitData.bathrooms,
-            square_feet: unitData.square_feet || undefined,
-            rent_amount: parseFloat(unitData.rent_amount.toString()),
-            status: 'AVAILABLE',
-            description: unitData.description,
-          })
+          if (unitData.unit_number && unitData.bedrooms && unitData.bathrooms && unitData.rent_amount) {
+            await units.create({
+              property_id: property.id,
+              unit_number: unitData.unit_number,
+              bedrooms: unitData.bedrooms,
+              bathrooms: unitData.bathrooms,
+              square_feet: unitData.square_feet || undefined,
+              rent_amount: parseFloat(unitData.rent_amount.toString()),
+              status: 'AVAILABLE',
+              description: unitData.description,
+            });
+          }
+        }
+      } else if (['HOUSE', 'TOWNHOUSE'].includes(formData.propertyType)) {
+        // Create default unit for HOUSE/TOWNHOUSE without units
+        await units.create({
+          property_id: property.id,
+          unit_number: '1',
+          bedrooms: 1,
+          bathrooms: 1,
+          square_feet: undefined,
+          rent_amount: 0,
+          status: 'AVAILABLE',
+          description: 'Default unit representing the entire property',
+        });
+      }
+      // For COMMERCIAL properties, no units are created if none provided
+
+      router.push('/dashboard/properties');
+    } catch (error) {
+      // If property was created but units failed, delete the property
+      if (property && property.id) {
+        try {
+          await properties.delete(property.id);
+        } catch (deleteError) {
+          console.error('Failed to rollback property:', deleteError);
         }
       }
-
-      router.push('/dashboard/properties')
-    } catch (error) {
-      console.error('Error creating property:', error)
-      alert('Failed to create property. Please try again.')
+      console.error('Error creating property or units:', error);
+      alert('Failed to create property or units. Please try again.');
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
   }
 
@@ -401,7 +438,7 @@ export default function AddPropertyPage() {
                 <input
                   type="number"
                   id="totalUnits"
-                  min="1"
+                  min="0"
                   required
                   value={formData.totalUnits}
                   onChange={(e) => updateTotalUnits(parseInt(e.target.value))}

@@ -566,7 +566,13 @@ export const tenants = {
 
   // Get available units for tenant assignment
   getAvailableUnits: async () => {
-    const { data, error } = await supabase
+    // Get current user first
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError) throw userError
+    if (!user) throw new Error('User not authenticated')
+
+    // Get available units
+    const { data: units, error: unitsError } = await supabase
       .from('units')
       .select(`
         *,
@@ -578,8 +584,40 @@ export const tenants = {
       .eq('status', 'AVAILABLE')
       .order('unit_number', { ascending: true })
 
-    if (error) throw error
-    return data
+    if (unitsError) throw unitsError
+
+    // Get properties without units (for HOUSE/TOWNHOUSE/COMMERCIAL)
+    const { data: propertiesWithoutUnits, error: propertiesError } = await supabase
+      .from('properties')
+      .select(`
+        id,
+        name,
+        address,
+        property_type
+      `)
+      .eq('owner_id', user.id)
+      .not('id', 'in', `(${units?.map(u => `'${u.property_id}'`).join(',') || 'null'})`)
+
+    if (propertiesError) throw propertiesError
+
+    // Combine units with properties that have no units
+    const availableUnits = units || []
+    const propertiesForTenants = (propertiesWithoutUnits || []).map(property => ({
+      id: `property-${property.id}`, // Use a special ID to distinguish from units
+      unit_number: 'Entire Property',
+      bedrooms: 1,
+      bathrooms: 1,
+      square_feet: null,
+      rent_amount: 0,
+      property_id: property.id,
+      property: {
+        name: property.name,
+        address: property.address
+      },
+      is_entire_property: true // Flag to indicate this is the entire property
+    }))
+
+    return [...availableUnits, ...propertiesForTenants]
   },
 
   // Get all units for tenant editing (including occupied ones)
@@ -647,7 +685,7 @@ export const tenantInvitations = {
     lease_end: string
     rent_amount: number
     security_deposit: number
-    unit_id: string
+    unit_id: string | null
     landlord_id: string
   }) => {
     // Generate a unique verification token

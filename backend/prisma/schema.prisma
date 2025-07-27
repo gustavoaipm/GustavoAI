@@ -152,7 +152,7 @@ model Maintenance {
   propertyId  String
   property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   unitId      String?
-  unit        Unit?    @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  unit        Unit?    @relation(fields: [unitId], references: [id], onDelete: Cascade)
   tenantId    String?
   tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   assignedToId String?
