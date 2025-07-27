@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { 
@@ -11,14 +11,23 @@ import {
   WrenchScrewdriverIcon,
   BellIcon,
   ChartBarIcon,
-  ArrowRightOnRectangleIcon
+  ArrowRightOnRectangleIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline'
 import { useAuth } from '@/lib/auth-context'
 import DashboardNav from '@/app/components/DashboardNav'
+import { properties, tenants, payments, maintenance } from '@/lib/supabase-utils'
 
 export default function DashboardPage() {
   const { user, loading, signOut } = useAuth()
   const router = useRouter()
+  const [dashboardStats, setDashboardStats] = useState({
+    propertiesCount: 0,
+    activeTenantsCount: 0,
+    monthlyRent: 0,
+    pendingTasksCount: 0
+  })
+  const [statsLoading, setStatsLoading] = useState(true)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -26,6 +35,72 @@ export default function DashboardPage() {
     }
   }, [user, loading, router])
 
+  useEffect(() => {
+    if (user) {
+      fetchDashboardStats()
+    }
+  }, [user])
+
+  // Refresh stats when component comes into focus (user navigates back)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user) {
+        fetchDashboardStats()
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [user])
+
+  const fetchDashboardStats = async () => {
+    try {
+      setStatsLoading(true)
+      
+      // Fetch all data in parallel
+      const [propertiesData, tenantsData, paymentsData, maintenanceData] = await Promise.all([
+        properties.getAll(),
+        tenants.getAll(),
+        payments.getAll(),
+        maintenance.getAll()
+      ])
+
+      // Calculate properties count
+      const propertiesCount = propertiesData?.length || 0
+
+      // Calculate active tenants count
+      const activeTenantsCount = tenantsData?.filter(tenant => tenant.status === 'ACTIVE').length || 0
+
+      // Calculate actual monthly income (sum of paid payments from current month)
+      const currentMonth = new Date().getMonth()
+      const currentYear = new Date().getFullYear()
+      
+      const monthlyRent = paymentsData
+        ?.filter(payment => {
+          if (payment.status !== 'PAID' || payment.type !== 'RENT') return false
+          
+          // Check if payment was made in current month
+          const paymentDate = new Date(payment.paid_date || payment.created_at)
+          return paymentDate.getMonth() === currentMonth && paymentDate.getFullYear() === currentYear
+        })
+        .reduce((total, payment) => total + parseFloat(payment.amount.toString()), 0) || 0
+
+      // Calculate pending tasks (maintenance requests that are not completed)
+      const pendingTasksCount = maintenanceData
+        ?.filter(task => task.status !== 'COMPLETED' && task.status !== 'CANCELLED').length || 0
+
+      setDashboardStats({
+        propertiesCount,
+        activeTenantsCount,
+        monthlyRent,
+        pendingTasksCount
+      })
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error)
+    } finally {
+      setStatsLoading(false)
+    }
+  }
 
 
   if (loading) {
@@ -108,6 +183,75 @@ export default function DashboardPage() {
           </p>
         </div>
 
+        {/* Quick Stats */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+            Quick Overview
+            <button
+              onClick={fetchDashboardStats}
+              disabled={statsLoading}
+              className="ml-4 p-2 rounded-full text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50"
+              title="Refresh Stats"
+            >
+              <ArrowPathIcon className={`h-5 w-5 ${statsLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="card text-center">
+              {statsLoading ? (
+                <div className="animate-pulse">
+                  <div className="h-8 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                </div>
+              ) : (
+                <>
+                  <div className="text-3xl font-bold text-primary-600">{dashboardStats.propertiesCount}</div>
+                  <div className="text-gray-600">Properties</div>
+                </>
+              )}
+            </div>
+            <div className="card text-center">
+              {statsLoading ? (
+                <div className="animate-pulse">
+                  <div className="h-8 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                </div>
+              ) : (
+                <>
+                  <div className="text-3xl font-bold text-green-600">{dashboardStats.activeTenantsCount}</div>
+                  <div className="text-gray-600">Active Tenants</div>
+                </>
+              )}
+            </div>
+            <div className="card text-center">
+              {statsLoading ? (
+                <div className="animate-pulse">
+                  <div className="h-8 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                </div>
+              ) : (
+                <>
+                  <div className="text-3xl font-bold text-yellow-600">${dashboardStats.monthlyRent.toLocaleString()}</div>
+                  <div className="text-gray-600">This Month's Income</div>
+                </>
+              )}
+            </div>
+            <div className="card text-center">
+              {statsLoading ? (
+                <div className="animate-pulse">
+                  <div className="h-8 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                </div>
+              ) : (
+                <>
+                  <div className="text-3xl font-bold text-purple-600">{dashboardStats.pendingTasksCount}</div>
+                  <div className="text-gray-600">Pending Tasks</div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Dashboard Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {dashboardItems.map((item) => (
@@ -132,29 +276,6 @@ export default function DashboardPage() {
               </div>
             </Link>
           ))}
-        </div>
-
-        {/* Quick Stats */}
-        <div className="mt-12">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Overview</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="card text-center">
-              <div className="text-3xl font-bold text-primary-600">0</div>
-              <div className="text-gray-600">Properties</div>
-            </div>
-            <div className="card text-center">
-              <div className="text-3xl font-bold text-green-600">0</div>
-              <div className="text-gray-600">Active Tenants</div>
-            </div>
-            <div className="card text-center">
-              <div className="text-3xl font-bold text-yellow-600">$0</div>
-              <div className="text-gray-600">Monthly Rent</div>
-            </div>
-            <div className="card text-center">
-              <div className="text-3xl font-bold text-purple-600">0</div>
-              <div className="text-gray-600">Pending Tasks</div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
