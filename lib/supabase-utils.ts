@@ -620,6 +620,86 @@ export const tenants = {
     return [...availableUnits, ...propertiesForTenants]
   },
 
+  // Get properties with their available units for hierarchical selection
+  getPropertiesWithAvailableUnits: async () => {
+    // Get current user first
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError) throw userError
+    if (!user) throw new Error('User not authenticated')
+
+    // Get all properties owned by the user
+    const { data: properties, error: propertiesError } = await supabase
+      .from('properties')
+      .select(`
+        id,
+        name,
+        address,
+        property_type
+      `)
+      .eq('owner_id', user.id)
+      .order('name', { ascending: true })
+
+    if (propertiesError) throw propertiesError
+
+    // Get available units for each property
+    const { data: units, error: unitsError } = await supabase
+      .from('units')
+      .select(`
+        *,
+        property:properties (
+          name,
+          address
+        )
+      `)
+      .eq('status', 'AVAILABLE')
+      .order('unit_number', { ascending: true })
+
+    if (unitsError) throw unitsError
+
+    // Group units by property
+    const unitsByProperty = (units || []).reduce((acc, unit) => {
+      if (!acc[unit.property_id]) {
+        acc[unit.property_id] = []
+      }
+      acc[unit.property_id].push(unit)
+      return acc
+    }, {} as Record<string, any[]>)
+
+    // Create the result structure
+    const result = (properties || []).map(property => {
+      const propertyUnits = unitsByProperty[property.id] || []
+      
+      // Check if this property has no units (for HOUSE/TOWNHOUSE/COMMERCIAL)
+      const hasNoUnits = propertyUnits.length === 0
+      
+      return {
+        id: property.id,
+        name: property.name,
+        address: property.address,
+        property_type: property.property_type,
+        units: propertyUnits,
+        hasNoUnits,
+        // Add a virtual "Entire Property" option for properties without units
+        entirePropertyOption: hasNoUnits ? {
+          id: `property-${property.id}`,
+          unit_number: 'Entire Property',
+          bedrooms: 1,
+          bathrooms: 1,
+          square_feet: null,
+          rent_amount: 0,
+          property_id: property.id,
+          property: {
+            name: property.name,
+            address: property.address
+          },
+          is_entire_property: true
+        } : null
+      }
+    })
+
+    return result
+  },
+
   // Get all units for tenant editing (including occupied ones)
   getAllUnits: async () => {
     const { data, error } = await supabase
