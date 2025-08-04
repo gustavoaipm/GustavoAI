@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
+import { NotificationProvider } from '@/lib/notification-context'
+import NotificationContainer from '@/app/components/NotificationContainer'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -20,9 +22,12 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <AuthProvider>
-          <div className="min-h-screen bg-gray-50">
-            {children}
-          </div>
+          <NotificationProvider>
+            <div className="min-h-screen bg-gray-50">
+              {children}
+            </div>
+            <NotificationContainer />
+          </NotificationProvider>
         </AuthProvider>
       </body>
     </html>

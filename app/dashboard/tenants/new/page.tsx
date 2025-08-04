@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { tenants } from '@/lib/supabase-utils'
 import { tenantInvitations } from '@/lib/supabase-utils'
 import { supabase } from '@/lib/supabaseClient'
 import DashboardNav from '@/app/components/DashboardNav'
+import PhoneInput from '@/app/components/PhoneInput'
+import { notifications } from '@/lib/notification-utils'
 import { 
   UserGroupIcon, 
   HomeIcon, 
@@ -60,6 +62,7 @@ interface TenantFormData {
 export default function AddTenantPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [propertiesWithUnits, setPropertiesWithUnits] = useState<PropertyWithUnits[]>([])
   const [selectedProperty, setSelectedProperty] = useState<PropertyWithUnits | null>(null)
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null)
@@ -87,6 +90,21 @@ export default function AddTenantPage() {
       fetchPropertiesWithUnits()
     }
   }, [user])
+
+  // Handle propertyId from query parameter
+  useEffect(() => {
+    const propertyId = searchParams.get('propertyId')
+    if (propertyId && propertiesWithUnits.length > 0) {
+      const property = propertiesWithUnits.find(p => p.id === propertyId)
+      if (property) {
+        setSelectedProperty(property)
+        setFormData(prev => ({
+          ...prev,
+          property_id: property.id
+        }))
+      }
+    }
+  }, [searchParams, propertiesWithUnits])
 
   const fetchPropertiesWithUnits = async () => {
     try {
@@ -200,11 +218,11 @@ export default function AddTenantPage() {
         throw new Error('Failed to send invitation email')
       }
 
-      alert('Tenant invitation sent successfully! The tenant will receive an email to verify and create their account.')
+      notifications.tenantCreated()
       router.push('/dashboard/tenants')
     } catch (error) {
       console.error('Error creating tenant invitation:', error)
-      alert('Failed to send tenant invitation. Please try again.')
+      notifications.genericError('sending tenant invitation')
     } finally {
       setIsSubmitting(false)
     }
@@ -259,155 +277,6 @@ export default function AddTenantPage() {
       {/* Form */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Basic Information */}
-          <div className="card">
-            <div className="flex items-center mb-6">
-              <UserGroupIcon className="h-6 w-6 text-primary-600 mr-3" />
-              <h2 className="text-xl font-semibold text-gray-900">Basic Information</h2>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-2">
-                  First Name *
-                </label>
-                <input
-                  type="text"
-                  id="first_name"
-                  required
-                  value={formData.first_name}
-                  onChange={(e) => handleInputChange('first_name', e.target.value)}
-                  className="form-input"
-                  placeholder="John"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-2">
-                  Last Name *
-                </label>
-                <input
-                  type="text"
-                  id="last_name"
-                  required
-                  value={formData.last_name}
-                  onChange={(e) => handleInputChange('last_name', e.target.value)}
-                  className="form-input"
-                  placeholder="Doe"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address *
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  required
-                  value={formData.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                  className="form-input"
-                  placeholder="john.doe@example.com"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                  Phone Number *
-                </label>
-                <input
-                  type="tel"
-                  id="phone"
-                  required
-                  value={formData.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  className="form-input"
-                  placeholder="(555) 123-4567"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="date_of_birth" className="block text-sm font-medium text-gray-700 mb-2">
-                  Date of Birth
-                </label>
-                <input
-                  type="date"
-                  id="date_of_birth"
-                  value={formData.date_of_birth}
-                  onChange={(e) => handleInputChange('date_of_birth', e.target.value)}
-                  className="form-input"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="emergency_contact" className="block text-sm font-medium text-gray-700 mb-2">
-                  Emergency Contact Name
-                </label>
-                <input
-                  type="text"
-                  id="emergency_contact"
-                  value={formData.emergency_contact}
-                  onChange={(e) => handleInputChange('emergency_contact', e.target.value)}
-                  className="form-input"
-                  placeholder="Emergency contact name"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="emergency_phone" className="block text-sm font-medium text-gray-700 mb-2">
-                  Emergency Contact Phone
-                </label>
-                <input
-                  type="tel"
-                  id="emergency_phone"
-                  value={formData.emergency_phone}
-                  onChange={(e) => handleInputChange('emergency_phone', e.target.value)}
-                  className="form-input"
-                  placeholder="(555) 987-6543"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Lease Information */}
-          <div className="card">
-            <div className="flex items-center mb-6">
-              <CalendarIcon className="h-6 w-6 text-primary-600 mr-3" />
-              <h2 className="text-xl font-semibold text-gray-900">Lease Information</h2>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="lease_start" className="block text-sm font-medium text-gray-700 mb-2">
-                  Lease Start Date *
-                </label>
-                <input
-                  type="date"
-                  id="lease_start"
-                  required
-                  value={formData.lease_start}
-                  onChange={(e) => handleInputChange('lease_start', e.target.value)}
-                  className="form-input"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="lease_end" className="block text-sm font-medium text-gray-700 mb-2">
-                  Lease End Date *
-                </label>
-                <input
-                  type="date"
-                  id="lease_end"
-                  required
-                  value={formData.lease_end}
-                  onChange={(e) => handleInputChange('lease_end', e.target.value)}
-                  className="form-input"
-                />
-              </div>
-            </div>
-          </div>
-
           {/* Property Assignment */}
           <div className="card">
             <div className="flex items-center mb-6">
@@ -528,11 +397,148 @@ export default function AddTenantPage() {
             </div>
           </div>
 
-          {/* Financial Information */}
+          {/* Tenant Information */}
+          <div className="card">
+            <div className="flex items-center mb-6">
+              <UserGroupIcon className="h-6 w-6 text-primary-600 mr-3" />
+              <h2 className="text-xl font-semibold text-gray-900">Tenant Information</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-2">
+                  First Name *
+                </label>
+                <input
+                  type="text"
+                  id="first_name"
+                  required
+                  value={formData.first_name}
+                  onChange={(e) => handleInputChange('first_name', e.target.value)}
+                  className="form-input"
+                  placeholder="John"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-2">
+                  Last Name *
+                </label>
+                <input
+                  type="text"
+                  id="last_name"
+                  required
+                  value={formData.last_name}
+                  onChange={(e) => handleInputChange('last_name', e.target.value)}
+                  className="form-input"
+                  placeholder="Doe"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Address *
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  className="form-input"
+                  placeholder="john.doe@example.com"
+                />
+              </div>
+
+              <PhoneInput
+                  id="phone"
+                label="Phone Number"
+                  value={formData.phone}
+                onChange={(formattedValue) => handleInputChange('phone', formattedValue)}
+                  placeholder="(555) 123-4567"
+                required
+                />
+
+              <div>
+                <label htmlFor="date_of_birth" className="block text-sm font-medium text-gray-700 mb-2">
+                  Date of Birth
+                </label>
+                <input
+                  type="date"
+                  id="date_of_birth"
+                  value={formData.date_of_birth}
+                  onChange={(e) => handleInputChange('date_of_birth', e.target.value)}
+                  className="form-input"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="emergency_contact" className="block text-sm font-medium text-gray-700 mb-2">
+                  Emergency Contact Name
+                </label>
+                <input
+                  type="text"
+                  id="emergency_contact"
+                  value={formData.emergency_contact}
+                  onChange={(e) => handleInputChange('emergency_contact', e.target.value)}
+                  className="form-input"
+                  placeholder="Emergency contact name"
+                />
+              </div>
+
+              <PhoneInput
+                  id="emergency_phone"
+                label="Emergency Contact Phone"
+                  value={formData.emergency_phone}
+                onChange={(formattedValue) => handleInputChange('emergency_phone', formattedValue)}
+                  placeholder="(555) 987-6543"
+                />
+            </div>
+          </div>
+
+          {/* Lease Dates */}
+          <div className="card">
+            <div className="flex items-center mb-6">
+              <CalendarIcon className="h-6 w-6 text-primary-600 mr-3" />
+              <h2 className="text-xl font-semibold text-gray-900">Lease Dates</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="lease_start" className="block text-sm font-medium text-gray-700 mb-2">
+                  Lease Start Date *
+                </label>
+                <input
+                  type="date"
+                  id="lease_start"
+                  required
+                  value={formData.lease_start}
+                  onChange={(e) => handleInputChange('lease_start', e.target.value)}
+                  className="form-input"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="lease_end" className="block text-sm font-medium text-gray-700 mb-2">
+                  Lease End Date *
+                </label>
+                <input
+                  type="date"
+                  id="lease_end"
+                  required
+                  value={formData.lease_end}
+                  onChange={(e) => handleInputChange('lease_end', e.target.value)}
+                  className="form-input"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Rent and Security Deposit */}
           <div className="card">
             <div className="flex items-center mb-6">
               <CurrencyDollarIcon className="h-6 w-6 text-primary-600 mr-3" />
-              <h2 className="text-xl font-semibold text-gray-900">Financial Information</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Rent and Security Deposit</h2>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -92,12 +92,15 @@ jest.mock('@/lib/auth-context', () => {
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import AddTenantPage from '@/app/dashboard/tenants/new/page';
 import { AuthProvider } from '@/lib/auth-context';
+import { NotificationProvider } from '@/lib/notification-context';
 
 describe('AddTenantPage', () => {
   it('submits the form and creates a tenant invitation', async () => {
     render(
       <AuthProvider>
-        <AddTenantPage />
+        <NotificationProvider>
+          <AddTenantPage />
+        </NotificationProvider>
       </AuthProvider>
     );
 

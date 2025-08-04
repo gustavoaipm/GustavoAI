@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { tenantInvitations } from '@/lib/supabase-utils'
 import { auth } from '@/lib/supabase-utils'
+import { supabase } from '@/lib/supabaseClient'
 import { 
   CheckCircleIcon, 
   ExclamationTriangleIcon, 
@@ -65,6 +66,17 @@ export default function TenantVerifyPage() {
     }
   }, [token])
 
+  // Auto-redirect to login after 5 seconds when step is success
+  useEffect(() => {
+    if (step === 'success') {
+      const timer = setTimeout(() => {
+        router.push('/login')
+      }, 5000)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [step, router])
+
   const verifyInvitation = async () => {
     try {
       // Use server-side API to fetch invitation data with related information
@@ -103,38 +115,67 @@ export default function TenantVerifyPage() {
     setError(null)
 
     try {
-      // 1. Call server-side API to verify invitation and create tenant row
-      const verifyResponse = await fetch('/api/tenant-verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: token!,
-          invitationId: invitation!.id
-        })
+      // 1. Create Supabase Auth user first (for authentication)
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: invitation!.email,
+        password: password,
+        options: {
+          data: {
+            first_name: invitation!.first_name,
+            last_name: invitation!.last_name,
+            phone: invitation!.phone,
+            role: 'TENANT'
+          }
+        }
       })
 
-      if (!verifyResponse.ok) {
-        const errorData = await verifyResponse.json()
-        setError(errorData.error || 'Failed to verify invitation')
+      if (signUpError) {
+        console.error('Auth signup error:', signUpError)
+        setError(`Failed to create authentication account: ${signUpError.message}`)
         setIsVerifying(false)
         return
       }
 
-      // 2. Create Supabase Auth user (enables login)
-      const { user } = await auth.signUp(invitation!.email, password, {
-        first_name: invitation!.first_name,
-        last_name: invitation!.last_name,
-        phone: invitation!.phone,
-        role: 'TENANT'
-      })
-
-      if (!user) {
+      if (!data.user) {
         setError('Failed to create user account')
         setIsVerifying(false)
         return
       }
 
-      // 3. (Optional) Send welcome email
+      // 2. Call server-side API to verify invitation and create tenant row
+      const verifyResponse = await fetch('/api/tenant-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: token!,
+          invitationId: invitation!.id,
+          userId: data.user.id
+        })
+      })
+
+      console.log('Verify response status:', verifyResponse.status)
+      const verifyData = await verifyResponse.json()
+      console.log('Verify response data:', verifyData)
+
+      if (!verifyResponse.ok) {
+        setError(verifyData.error || 'Failed to verify invitation')
+        setIsVerifying(false)
+        return
+      }
+
+      // 3. Sign in the user to establish the session
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: invitation!.email,
+        password: password
+      })
+
+      if (signInError) {
+        console.error('Sign in error:', signInError)
+        // Don't fail here - the account was created successfully
+        // User can sign in manually later
+      }
+
+      // 4. (Optional) Send welcome email
       const loginUrl = `${window.location.origin}/login`
       const emailResponse = await fetch('/api/tenant-invitations', {
         method: 'POST',
@@ -213,12 +254,17 @@ export default function TenantVerifyPage() {
           <p className="text-gray-600 mb-6">
             Your account has been successfully created. You can now access your property management portal.
           </p>
-          <button
-            onClick={() => router.push('/login')}
-            className="btn-primary"
-          >
-            Sign In to Your Account
-          </button>
+          <div className="space-y-4">
+            <button
+              onClick={() => router.push('/login')}
+              className="w-full btn-primary"
+            >
+              Sign In to Your Account
+            </button>
+            <p className="text-sm text-gray-500">
+              You will be automatically redirected to the login page in 5 seconds...
+            </p>
+          </div>
         </div>
       </div>
     )

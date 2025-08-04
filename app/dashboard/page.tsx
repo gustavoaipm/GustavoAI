@@ -35,8 +35,15 @@ export default function DashboardPage() {
     }
   }, [user, loading, router])
 
+  // Redirect tenants to their portal
   useEffect(() => {
-    if (user) {
+    if (!loading && user && user.role === 'TENANT') {
+      router.push('/dashboard/tenant-portal')
+    }
+  }, [user, loading, router])
+
+  useEffect(() => {
+    if (user && user.role !== 'TENANT') {
       fetchDashboardStats()
     }
   }, [user])
@@ -44,7 +51,7 @@ export default function DashboardPage() {
   // Refresh stats when component comes into focus (user navigates back)
   useEffect(() => {
     const handleFocus = () => {
-      if (user) {
+      if (user && user.role !== 'TENANT') {
         fetchDashboardStats()
       }
     }
@@ -102,13 +109,17 @@ export default function DashboardPage() {
     }
   }
 
+  // Don't render landlord dashboard for tenants
+  if (user && user.role === 'TENANT') {
+    return null
+  }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
         </div>
       </div>
     )
@@ -118,164 +129,145 @@ export default function DashboardPage() {
     return null
   }
 
-  const dashboardItems = [
-    {
-      title: 'Properties',
-      description: 'Manage your properties',
-      icon: HomeIcon,
-      href: '/dashboard/properties',
-      color: 'bg-blue-500',
-    },
-    {
-      title: 'Tenants',
-      description: 'View and manage tenants',
-      icon: UserGroupIcon,
-      href: '/dashboard/tenants',
-      color: 'bg-green-500',
-    },
-    {
-      title: 'Payments',
-      description: 'Track rent and payments',
-      icon: CurrencyDollarIcon,
-      href: '/dashboard/payments',
-      color: 'bg-yellow-500',
-    },
-    {
-      title: 'Maintenance',
-      description: 'Schedule and track maintenance',
-      icon: WrenchScrewdriverIcon,
-      href: '/dashboard/maintenance',
-      color: 'bg-purple-500',
-    },
-    {
-      title: 'Calendar',
-      description: 'View scheduled events',
-      icon: CalendarIcon,
-      href: '/dashboard/calendar',
-      color: 'bg-red-500',
-    },
-    {
-      title: 'Notifications',
-      description: 'View system notifications',
-      icon: BellIcon,
-      href: '/dashboard/notifications',
-      color: 'bg-indigo-500',
-    },
-    {
-      title: 'Analytics',
-      description: 'View property analytics',
-      icon: ChartBarIcon,
-      href: '/dashboard/analytics',
-      color: 'bg-pink-500',
-    },
-  ]
-
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardNav />
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="mt-2 text-gray-600">
-            Welcome to your property management dashboard. Here's what you can do:
-          </p>
+      
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Property Management Dashboard</h1>
+              <p className="mt-2 text-gray-600">Welcome back, {user.first_name}!</p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={fetchDashboardStats}
+                disabled={statsLoading}
+                className="btn-secondary flex items-center"
+              >
+                <ArrowPathIcon className={`h-4 w-4 mr-2 ${statsLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
+          </div>
         </div>
+      </div>
 
-        {/* Quick Stats */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-            Quick Overview
-            <button
-              onClick={fetchDashboardStats}
-              disabled={statsLoading}
-              className="ml-4 p-2 rounded-full text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50"
-              title="Refresh Stats"
-            >
-              <ArrowPathIcon className={`h-5 w-5 ${statsLoading ? 'animate-spin' : ''}`} />
-            </button>
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="card text-center">
-              {statsLoading ? (
-                <div className="animate-pulse">
-                  <div className="h-8 bg-gray-200 rounded mb-2"></div>
-                  <div className="h-4 bg-gray-200 rounded"></div>
-                </div>
-              ) : (
-                <>
-                  <div className="text-3xl font-bold text-primary-600">{dashboardStats.propertiesCount}</div>
-                  <div className="text-gray-600">Properties</div>
-                </>
-              )}
+      {/* Quick Overview */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="card">
+            <div className="flex items-center">
+              <HomeIcon className="h-8 w-8 text-blue-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Total Properties</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {statsLoading ? '...' : dashboardStats.propertiesCount}
+                </p>
+              </div>
             </div>
-            <div className="card text-center">
-              {statsLoading ? (
-                <div className="animate-pulse">
-                  <div className="h-8 bg-gray-200 rounded mb-2"></div>
-                  <div className="h-4 bg-gray-200 rounded"></div>
-                </div>
-              ) : (
-                <>
-                  <div className="text-3xl font-bold text-green-600">{dashboardStats.activeTenantsCount}</div>
-                  <div className="text-gray-600">Active Tenants</div>
-                </>
-              )}
+          </div>
+
+          <div className="card">
+            <div className="flex items-center">
+              <UserGroupIcon className="h-8 w-8 text-green-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Active Tenants</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {statsLoading ? '...' : dashboardStats.activeTenantsCount}
+                </p>
+              </div>
             </div>
-            <div className="card text-center">
-              {statsLoading ? (
-                <div className="animate-pulse">
-                  <div className="h-8 bg-gray-200 rounded mb-2"></div>
-                  <div className="h-4 bg-gray-200 rounded"></div>
-                </div>
-              ) : (
-                <>
-                  <div className="text-3xl font-bold text-yellow-600">${dashboardStats.monthlyRent.toLocaleString()}</div>
-                  <div className="text-gray-600">This Month's Income</div>
-                </>
-              )}
+          </div>
+
+          <div className="card">
+            <div className="flex items-center">
+              <CurrencyDollarIcon className="h-8 w-8 text-yellow-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">This Month's Income</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {statsLoading ? '...' : `$${dashboardStats.monthlyRent.toLocaleString()}`}
+                </p>
+              </div>
             </div>
-            <div className="card text-center">
-              {statsLoading ? (
-                <div className="animate-pulse">
-                  <div className="h-8 bg-gray-200 rounded mb-2"></div>
-                  <div className="h-4 bg-gray-200 rounded"></div>
-                </div>
-              ) : (
-                <>
-                  <div className="text-3xl font-bold text-purple-600">{dashboardStats.pendingTasksCount}</div>
-                  <div className="text-gray-600">Pending Tasks</div>
-                </>
-              )}
+          </div>
+
+          <div className="card">
+            <div className="flex items-center">
+              <WrenchScrewdriverIcon className="h-8 w-8 text-red-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Pending Tasks</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {statsLoading ? '...' : dashboardStats.pendingTasksCount}
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Dashboard Grid */}
+        {/* Main Navigation Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {dashboardItems.map((item) => (
-            <Link
-              key={item.title}
-              href={item.href}
-              className="card hover:shadow-md transition-shadow duration-200 group"
-            >
-              <div className="flex items-center">
-                <div className={`${item.color} p-3 rounded-lg mr-4`}>
-                  <item.icon className="h-6 w-6 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 group-hover:text-primary-600">
-                    {item.title}
-                  </h3>
-                  <p className="text-gray-600">{item.description}</p>
-                </div>
-                <div className="text-gray-400 group-hover:text-primary-600">
-                  <ArrowRightOnRectangleIcon className="h-5 w-5 transform rotate-180" />
-                </div>
+          <Link href="/dashboard/properties" className="card hover:shadow-lg transition-shadow">
+            <div className="flex items-center">
+              <HomeIcon className="h-8 w-8 text-blue-600" />
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">Properties</h3>
+                <p className="text-gray-600">Manage your properties and units</p>
               </div>
-            </Link>
-          ))}
+            </div>
+          </Link>
+
+          <Link href="/dashboard/tenants" className="card hover:shadow-lg transition-shadow">
+            <div className="flex items-center">
+              <UserGroupIcon className="h-8 w-8 text-green-600" />
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">Tenants</h3>
+                <p className="text-gray-600">Manage tenant information and leases</p>
+              </div>
+            </div>
+          </Link>
+
+          <Link href="/dashboard/payments" className="card hover:shadow-lg transition-shadow">
+            <div className="flex items-center">
+              <CurrencyDollarIcon className="h-8 w-8 text-yellow-600" />
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">Payments</h3>
+                <p className="text-gray-600">Track rent payments and financials</p>
+              </div>
+            </div>
+          </Link>
+
+          <Link href="/dashboard/maintenance" className="card hover:shadow-lg transition-shadow">
+            <div className="flex items-center">
+              <WrenchScrewdriverIcon className="h-8 w-8 text-red-600" />
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">Maintenance</h3>
+                <p className="text-gray-600">Handle maintenance requests</p>
+              </div>
+            </div>
+          </Link>
+
+          <Link href="/dashboard/calendar" className="card hover:shadow-lg transition-shadow">
+            <div className="flex items-center">
+              <CalendarIcon className="h-8 w-8 text-purple-600" />
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">Calendar</h3>
+                <p className="text-gray-600">Schedule and view events</p>
+              </div>
+            </div>
+          </Link>
+
+          <Link href="/dashboard/analytics" className="card hover:shadow-lg transition-shadow">
+            <div className="flex items-center">
+              <ChartBarIcon className="h-8 w-8 text-indigo-600" />
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900">Analytics</h3>
+                <p className="text-gray-600">View property performance metrics</p>
+              </div>
+            </div>
+          </Link>
         </div>
       </div>
     </div>

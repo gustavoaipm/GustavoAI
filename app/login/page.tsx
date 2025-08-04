@@ -45,10 +45,20 @@ export default function LoginPage() {
     setError('')
 
     try {
-      await signIn(data.email, data.password)
+      const profile = await signIn(data.email, data.password)
       
-      // Redirect to dashboard or home page
-      router.push('/dashboard')
+      if (profile) {
+        // Redirect based on user role
+        if (profile.role === 'TENANT') {
+          router.push('/dashboard/tenant-portal')
+        } else {
+          // LANDLORD or ADMIN
+          router.push('/dashboard')
+        }
+      } else {
+        // Fallback to main dashboard
+        router.push('/dashboard')
+      }
     } catch (err: any) {
       setError(err.message || 'Login failed. Please check your credentials.')
     } finally {

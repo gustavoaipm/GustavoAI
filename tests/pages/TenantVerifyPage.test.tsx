@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import TenantVerifyPage from '@/app/auth/tenant-verify/page';
 import { AuthProvider } from '@/lib/auth-context';
+import { NotificationProvider } from '@/lib/notification-context';
 
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
@@ -8,100 +9,107 @@ jest.mock('next/navigation', () => ({
     push: jest.fn(),
   }),
   useSearchParams: () => ({
-    get: (key: string) => (key === 'token' ? 'mock-token' : null),
+    get: jest.fn().mockReturnValue('test-token-123'),
   }),
 }));
 
 // Mock supabase-utils
 jest.mock('@/lib/supabase-utils', () => ({
-  tenantInvitations: {},
-  auth: {
-    signUp: jest.fn().mockResolvedValue({
-      user: { id: 'tenant-1', email: 'tenant@example.com' },
+  tenantInvitations: {
+    getByToken: jest.fn().mockResolvedValue({
+      id: 'invitation-1',
+      email: 'tenant@example.com',
+      first_name: 'John',
+      last_name: 'Doe',
+      phone: '555-123-4567',
+      lease_start: '2024-01-01',
+      lease_end: '2024-12-31',
+      rent_amount: 1200,
+      security_deposit: 2400,
+      unit: {
+        unit_number: '1A',
+        property: {
+          name: 'Test Property',
+          address: '123 Main St'
+        }
+      },
+      landlord: {
+        first_name: 'Jane',
+        last_name: 'Smith',
+        email: 'landlord@example.com'
+      }
     }),
-    getCurrentUserProfile: jest.fn().mockResolvedValue(null), // Added to silence auth-context error
+  },
+  auth: {
+    signUp: jest.fn(),
+    signIn: jest.fn(),
+    signOut: jest.fn(),
+    updateProfile: jest.fn(),
+    getCurrentUserProfile: jest.fn().mockResolvedValue(null),
   },
 }));
 
-// Mock fetch for API routes
-// @ts-ignore
-global.fetch = jest.fn((url, options) => {
-  if (url.includes('/api/tenant-invitation')) {
-    return Promise.resolve({
-      ok: true,
-      json: async () => ({
-        invitation: {
-          id: 'inv-1',
-          email: 'tenant@example.com',
-          first_name: 'Jane',
-          last_name: 'Doe',
-          phone: '555-1234',
-          lease_start: '2024-08-01',
-          lease_end: '2025-08-01',
-          rent_amount: 1200,
-          security_deposit: 1200,
-          unit: {
-            unit_number: '1A',
-            property: { name: 'Test Property', address: '123 Main St' },
-          },
-          landlord: {
-            first_name: 'Land',
-            last_name: 'Lord',
-            email: 'landlord@example.com',
-          },
-        },
+// Mock supabase client
+jest.mock('@/lib/supabaseClient', () => ({
+  supabase: {
+    auth: {
+      signUp: jest.fn().mockResolvedValue({
+        data: { user: { id: 'user-123', email: 'tenant@example.com' } },
+        error: null
       }),
-    });
-  }
-  if (url.includes('/api/tenant-verify')) {
-    return Promise.resolve({
-      ok: true,
-      json: async () => ({
-        success: true,
-        tenant: { id: 'tenant-1', email: 'tenant@example.com', property_id: 'property-1' },
-      }),
-    });
-  }
-  if (url.includes('/api/tenant-invitations')) {
-    return Promise.resolve({ ok: true, json: async () => ({}) });
-  }
-  return Promise.resolve({ ok: true, json: async () => ({}) });
-}) as any;
+      getUser: jest.fn(),
+      signInWithPassword: jest.fn(),
+      signOut: jest.fn(),
+    },
+    from: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      single: jest.fn(),
+      insert: jest.fn().mockReturnThis(),
+      update: jest.fn().mockReturnThis(),
+    }),
+  },
+}));
+
+// Mock global fetch
+global.fetch = jest.fn().mockResolvedValue({
+  ok: true,
+  json: async () => ({ success: true }),
+});
 
 describe('TenantVerifyPage', () => {
-  it('allows a tenant to verify invitation and create an account', async () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('renders the tenant verification page and allows account creation', async () => {
     render(
       <AuthProvider>
-        <TenantVerifyPage />
+        <NotificationProvider>
+          <TenantVerifyPage />
+        </NotificationProvider>
       </AuthProvider>
     );
 
-    // Wait for invitation to load
-    await screen.findByText(/Welcome to Test Property/i);
-
-    // Fill out password fields
-    fireEvent.change(screen.getByLabelText(/Create Password/i), { target: { value: 'password123' } });
-    fireEvent.change(screen.getByLabelText(/Confirm Password/i), { target: { value: 'password123' } });
-
-    // Submit the form
-    fireEvent.click(screen.getByRole('button', { name: /Create Account & Access Portal/i }));
-
-    // Wait for success message
+    // Wait for the page to load
     await waitFor(() => {
-      expect(screen.getByText(/Your account has been successfully created/i)).toBeInTheDocument();
+      expect(screen.getByText('Welcome to Test Property')).toBeInTheDocument();
     });
 
-    // Check that signUp was called with correct info
-    const { auth } = require('@/lib/supabase-utils');
-    expect(auth.signUp).toHaveBeenCalledWith(
-      'tenant@example.com',
-      'password123',
-      expect.objectContaining({
-        first_name: 'Jane',
-        last_name: 'Doe',
-        phone: '555-1234',
-        role: 'TENANT',
-      })
-    );
+    // Fill in password fields
+    const passwordInput = screen.getByLabelText(/Create Password/i);
+    const confirmPasswordInput = screen.getByLabelText(/Confirm Password/i);
+
+    fireEvent.change(passwordInput, { target: { value: 'password123' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: 'password123' } });
+
+    // Submit the form
+    const submitButton = screen.getByText('Create Account & Access Portal');
+    fireEvent.click(submitButton);
+
+    // Wait for the success message
+    await waitFor(() => {
+      expect(screen.getByText('Welcome to Your New Home!')).toBeInTheDocument();
+    });
   });
 }); 

@@ -1,23 +1,12 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { auth } from './supabase-utils'
-
-interface User {
-  id: string
-  email: string
-  first_name: string
-  last_name: string
-  phone?: string
-  role: 'LANDLORD' | 'TENANT' | 'ADMIN'
-  created_at: string
-  updated_at: string
-}
+import { auth, User } from './supabase-utils'
 
 interface AuthContextType {
   user: User | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<void>
+  signIn: (email: string, password: string) => Promise<User | null>
   signUp: (email: string, password: string, userData: any) => Promise<void>
   signOut: () => Promise<void>
   updateProfile: (updates: Partial<User>) => Promise<void>
@@ -39,6 +28,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error('Auth check error:', error)
+        // Don't throw error for missing sessions - this is normal during signup
+        if (error instanceof Error && error.message.includes('Auth session missing')) {
+          console.log('No active session found - this is normal for new users')
+        }
       } finally {
         setLoading(false)
       }
@@ -52,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await auth.signIn(email, password)
       const profile = await auth.getCurrentUserProfile()
       setUser(profile)
+      return profile // Return profile for role-based routing
     } catch (error) {
       throw error
     }

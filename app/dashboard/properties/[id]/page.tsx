@@ -448,7 +448,7 @@ export default function PropertyDetailPage() {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
               <div className="space-y-3">
                 <button
-                  onClick={() => router.push(`/dashboard/properties/${propertyId}/units/new`)}
+                  onClick={() => router.push(`/dashboard/properties/${propertyId}/edit?addUnit=1`)}
                   className="w-full btn-secondary flex items-center justify-center"
                 >
                   <HomeIcon className="h-4 w-4 mr-2" />

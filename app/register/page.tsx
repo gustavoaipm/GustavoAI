@@ -1,12 +1,22 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { EyeIcon, EyeSlashIcon, CheckCircleIcon, XCircleIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { auth } from '@/lib/supabase-utils'
+import { supabase } from '@/lib/supabaseClient'
+import PhoneInput from '@/app/components/PhoneInput'
+import { 
+  EyeIcon, 
+  EyeSlashIcon, 
+  CheckCircleIcon, 
+  XCircleIcon,
+  ExclamationTriangleIcon,
+  ArrowPathIcon
+} from '@heroicons/react/24/outline'
 import { useAuth } from '@/lib/auth-context'
 
 const registerSchema = z.object({
@@ -49,6 +59,7 @@ export default function RegisterPage() {
     handleSubmit,
     watch,
     formState: { errors },
+    control,
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
   })
@@ -199,21 +210,22 @@ export default function RegisterPage() {
               )}
             </div>
 
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                Phone Number (Optional)
-              </label>
-              <input
-                {...register('phone')}
-                id="phone"
-                type="tel"
-                className="input-field mt-1"
-                placeholder="+1 (555) 123-4567"
-              />
-              {errors.phone && (
-                <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>
+            <Controller
+              name="phone"
+              control={control}
+              render={({ field }) => (
+                <PhoneInput
+                  id="phone"
+                  label="Phone Number (Optional)"
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  error={errors.phone?.message}
+                  placeholder="(555) 123-4567"
+                  className="input-field"
+                />
               )}
-            </div>
+            />
 
             <div>
               <label htmlFor="role" className="block text-sm font-medium text-gray-700">
