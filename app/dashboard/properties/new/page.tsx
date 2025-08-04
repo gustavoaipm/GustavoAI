@@ -4,9 +4,18 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { properties } from '@/lib/supabase-utils'
-import { units } from '@/lib/supabase-utils'
+import { units as unitsApi } from '@/lib/supabase-utils'
 import DashboardNav from '@/app/components/DashboardNav'
-import { HomeIcon, MapPinIcon, BuildingOfficeIcon, PlusIcon, DocumentDuplicateIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { notifications } from '@/lib/notification-utils'
+import { 
+  HomeIcon, 
+  PlusIcon, 
+  TrashIcon, 
+  DocumentDuplicateIcon,
+  ArrowLeftIcon,
+  MapPinIcon,
+  BuildingOfficeIcon
+} from '@heroicons/react/24/outline'
 import GoogleAddressAutocomplete from '@/app/components/GoogleAddressAutocomplete'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -178,7 +187,7 @@ export default function AddPropertyPage() {
     )
 
     if (requiresUnits && !hasValidUnits) {
-      alert('Apartments and condos must have at least one unit with complete information (unit number, bedrooms, bathrooms, and rent).')
+      notifications.validationError('Apartments and condos must have at least one unit with complete information (unit number, bedrooms, bathrooms, and rent).')
       setIsSubmitting(false)
       return
     }
@@ -207,7 +216,7 @@ export default function AddPropertyPage() {
         // Create provided units
         for (const unitData of unitList) {
           if (unitData.unit_number && unitData.bedrooms && unitData.bathrooms && unitData.rent_amount) {
-            await units.create({
+            await unitsApi.create({
               property_id: property.id,
               unit_number: unitData.unit_number,
               bedrooms: unitData.bedrooms,
@@ -221,7 +230,7 @@ export default function AddPropertyPage() {
         }
       } else if (['HOUSE', 'TOWNHOUSE'].includes(formData.propertyType)) {
         // Create default unit for HOUSE/TOWNHOUSE without units
-        await units.create({
+        await unitsApi.create({
           property_id: property.id,
           unit_number: '1',
           bedrooms: 1,
@@ -245,7 +254,7 @@ export default function AddPropertyPage() {
         }
       }
       console.error('Error creating property or units:', error);
-      alert('Failed to create property or units. Please try again.');
+      notifications.genericError('creating property or units');
     } finally {
       setIsSubmitting(false);
     }

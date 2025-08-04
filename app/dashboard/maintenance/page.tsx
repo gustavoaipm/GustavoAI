@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { maintenance } from "@/lib/supabase-utils"
 import DashboardNav from "@/app/components/DashboardNav"
+import { notifications } from "@/lib/notification-utils"
 import {
   PlusIcon,
   WrenchScrewdriverIcon,
@@ -17,6 +18,8 @@ import {
   ClockIcon,
   UserIcon,
   ArrowLeftIcon,
+  ChevronDownIcon,
+  ChevronUpIcon
 } from "@heroicons/react/24/outline"
 import React from "react"
 
@@ -73,10 +76,10 @@ export default function MaintenancePage() {
         )
       )
       
-      alert(`Maintenance request marked as ${newStatus.toLowerCase()}`)
+      notifications.statusUpdated('Maintenance request', newStatus)
     } catch (error) {
       console.error("Error updating maintenance request:", error)
-      alert("Failed to update maintenance request status")
+      notifications.genericError("updating maintenance request status")
     } finally {
       setUpdatingId(null)
     }

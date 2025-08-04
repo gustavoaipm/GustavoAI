@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context'
 import { tenants } from '@/lib/supabase-utils'
 import { supabase } from '@/lib/supabaseClient'
 import DashboardNav from '@/app/components/DashboardNav'
+import PhoneInput from '@/app/components/PhoneInput'
 import { 
   UserGroupIcon, 
   HomeIcon, 
@@ -281,20 +282,14 @@ export default function EditTenantPage() {
                 />
               </div>
 
-              <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                  Phone Number *
-                </label>
-                <input
-                  type="tel"
-                  id="phone"
-                  required
-                  value={formData.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  className="form-input"
-                  placeholder="(555) 123-4567"
-                />
-              </div>
+              <PhoneInput
+                id="phone"
+                label="Phone Number"
+                value={formData.phone}
+                onChange={(value) => handleInputChange('phone', value)}
+                placeholder="(555) 123-4567"
+                required
+              />
 
               <div>
                 <label htmlFor="date_of_birth" className="block text-sm font-medium text-gray-700 mb-2">
@@ -341,19 +336,13 @@ export default function EditTenantPage() {
                 />
               </div>
 
-              <div>
-                <label htmlFor="emergency_phone" className="block text-sm font-medium text-gray-700 mb-2">
-                  Emergency Contact Phone
-                </label>
-                <input
-                  type="tel"
-                  id="emergency_phone"
-                  value={formData.emergency_phone}
-                  onChange={(e) => handleInputChange('emergency_phone', e.target.value)}
-                  className="form-input"
-                  placeholder="(555) 987-6543"
-                />
-              </div>
+              <PhoneInput
+                id="emergency_phone"
+                label="Emergency Contact Phone"
+                value={formData.emergency_phone}
+                onChange={(value) => handleInputChange('emergency_phone', value)}
+                placeholder="(555) 987-6543"
+              />
             </div>
           </div>
 

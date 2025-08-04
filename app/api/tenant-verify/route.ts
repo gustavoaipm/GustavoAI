@@ -11,15 +11,16 @@ export async function POST(request: NextRequest) {
   try {
     console.log('Tenant verification API called')
     const body = await request.json()
-    const { token, invitationId } = body
+    const { token, invitationId, userId } = body
 
     console.log('Received token:', token ? 'present' : 'missing')
     console.log('Received invitationId:', invitationId)
+    console.log('Received userId:', userId)
 
-    if (!token || !invitationId) {
+    if (!token || !invitationId || !userId) {
       console.log('Missing required parameters')
       return NextResponse.json(
-        { error: 'Token and invitation ID are required' },
+        { error: 'Token, invitation ID, and user ID are required' },
         { status: 400 }
       )
     }
@@ -41,21 +42,6 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('Invitation found:', invitation.id)
-
-    // Fetch the unit to get property_id
-    const { data: unitForProperty, error: unitForPropertyError } = await supabaseAdmin
-      .from('units')
-      .select('property_id')
-      .eq('id', invitation.unit_id)
-      .single();
-
-    if (unitForPropertyError || !unitForProperty) {
-      console.log('Error fetching unit for property_id:', unitForPropertyError)
-      return NextResponse.json(
-        { error: 'Failed to fetch unit for property_id' },
-        { status: 500 }
-      );
-    }
 
     // Verify the token matches
     if (invitation.verification_token !== token) {
@@ -102,11 +88,65 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Get the property_id from the unit
+    console.log('Fetching unit to get property_id...')
+    const { data: unit, error: unitFetchError } = await supabaseAdmin
+      .from('units')
+      .select('property_id')
+      .eq('id', invitation.unit_id)
+      .single()
+
+    if (unitFetchError || !unit) {
+      console.log('Error fetching unit:', unitFetchError)
+      return NextResponse.json(
+        { error: 'Failed to fetch unit information' },
+        { status: 500 }
+      )
+    }
+
+    console.log('Property ID from unit:', unit.property_id)
+
+    // Create the user record in public.users
+    console.log('Creating user record in public.users...')
+    const { data: userRecord, error: userCreateError } = await supabaseAdmin
+      .from('users')
+      .insert({
+        id: userId,
+        email: invitation.email,
+        first_name: invitation.first_name,
+        last_name: invitation.last_name,
+        phone: invitation.phone,
+        role: 'TENANT'
+      })
+      .select()
+      .single()
+
+    if (userCreateError) {
+      console.log('Failed to create user record:', userCreateError)
+      return NextResponse.json(
+        { error: 'Failed to create user profile' },
+        { status: 500 }
+      )
+    }
+
+    console.log('User record created:', userRecord)
+
     // Create the tenant
-    console.log('Creating tenant...')
+    console.log('Creating tenant with data:', {
+      user_id: userId,
+      email: invitation.email,
+      first_name: invitation.first_name,
+      last_name: invitation.last_name,
+      phone: invitation.phone,
+      unit_id: invitation.unit_id,
+      property_id: unit.property_id,
+      landlord_id: invitation.landlord_id
+    })
+    
     const { data: tenant, error: createError } = await supabaseAdmin
       .from('tenants')
       .insert({
+        user_id: userId,
         email: invitation.email,
         first_name: invitation.first_name,
         last_name: invitation.last_name,
@@ -119,7 +159,7 @@ export async function POST(request: NextRequest) {
         rent_amount: invitation.rent_amount,
         security_deposit: invitation.security_deposit,
         unit_id: invitation.unit_id,
-        property_id: unitForProperty.property_id, // <-- use renamed variable
+        property_id: unit.property_id,
         landlord_id: invitation.landlord_id,
         status: 'ACTIVE'
       })
@@ -128,8 +168,14 @@ export async function POST(request: NextRequest) {
 
     if (createError) {
       console.log('Error creating tenant:', createError)
+      console.log('Error details:', {
+        code: createError.code,
+        message: createError.message,
+        details: createError.details,
+        hint: createError.hint
+      })
       return NextResponse.json(
-        { error: 'Failed to create tenant account' },
+        { error: `Failed to create tenant account: ${createError.message}` },
         { status: 500 }
       )
     }

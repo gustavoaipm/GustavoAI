@@ -89,25 +89,131 @@ export const auth = {
 
   // Get current user profile
   getCurrentUserProfile: async () => {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser()
+      if (error) {
+        // Handle missing session gracefully
+        if (error.message.includes('Auth session missing')) {
+          return null
+        }
+        throw error
+      }
+      if (!user) return null
+
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+      if (profileError) {
+        console.error('Profile fetch error:', profileError)
+        // If profile doesn't exist, try to create it from auth user data
+        if (profileError.code === 'PGRST116') { // No rows returned
+          return await auth.createProfileFromAuthUser(user)
+        }
+        throw profileError
+      }
+      return profile
+    } catch (error) {
+      // Handle missing session gracefully
+      if (error instanceof Error && error.message.includes('Auth session missing')) {
+        return null
+      }
+      throw error
+    }
+  },
+
+  // Get tenant data for current user using the new view
+  getCurrentTenantData: async () => {
     const { data: { user }, error } = await supabase.auth.getUser()
     if (error) throw error
     if (!user) return null
 
-    const { data: profile, error: profileError } = await supabase
-      .from('users')
+    console.log('Getting tenant data for user:', user.id)
+
+    // Use the new tenant dashboard view
+    const { data: tenantData, error: viewError } = await supabase
+      .from('tenant_dashboard_data')
       .select('*')
-      .eq('id', user.id)
+      .eq('email', user.email)
       .single()
 
-    if (profileError) {
-      console.error('Profile fetch error:', profileError)
-      // If profile doesn't exist, try to create it from auth user data
-      if (profileError.code === 'PGRST116') { // No rows returned
-        return await auth.createProfileFromAuthUser(user)
+    if (viewError) {
+      if (viewError.code === 'PGRST116') { // No rows returned
+        console.log('No tenant data found for user:', user.id)
+        return null // User is not a tenant
       }
-      throw profileError
+      console.error('Error fetching tenant dashboard data:', viewError)
+      throw viewError
     }
-    return profile
+
+    console.log('Tenant dashboard data:', tenantData)
+
+    // Transform the view data to match the expected format
+    const result = {
+      id: tenantData.tenant_id,
+      email: tenantData.email,
+      first_name: tenantData.first_name,
+      last_name: tenantData.last_name,
+      phone: tenantData.phone,
+      date_of_birth: tenantData.date_of_birth,
+      emergency_contact: tenantData.emergency_contact,
+      emergency_phone: tenantData.emergency_phone,
+      status: tenantData.status,
+      lease_start: tenantData.lease_start,
+      lease_end: tenantData.lease_end,
+      rent_amount: tenantData.rent_amount,
+      security_deposit: tenantData.security_deposit,
+      created_at: tenantData.created_at,
+      updated_at: tenantData.updated_at,
+      user_id: user.id,
+      property_id: tenantData.property_id,
+      unit_id: tenantData.unit_id,
+      landlord_id: tenantData.landlord_id,
+      
+      // Property data
+      property: {
+        id: tenantData.property_id,
+        name: tenantData.property_name,
+        address: tenantData.property_address,
+        city: tenantData.property_city,
+        state: tenantData.property_state,
+        zip_code: tenantData.property_zip,
+        property_type: tenantData.property_type
+      },
+      
+      // Unit data
+      unit: tenantData.unit_id ? {
+        id: tenantData.unit_id,
+        unit_number: tenantData.unit_number,
+        bedrooms: tenantData.bedrooms,
+        bathrooms: tenantData.bathrooms,
+        square_feet: tenantData.square_feet,
+        rent_amount: tenantData.unit_rent,
+        property: {
+          id: tenantData.property_id,
+          name: tenantData.property_name,
+          address: tenantData.property_address,
+          city: tenantData.property_city,
+          state: tenantData.property_state,
+          zip_code: tenantData.property_zip,
+          property_type: tenantData.property_type
+        }
+      } : null,
+      
+      // Landlord data
+      landlord: {
+        id: tenantData.landlord_id,
+        first_name: tenantData.landlord_first_name,
+        last_name: tenantData.landlord_last_name,
+        email: tenantData.landlord_email,
+        phone: tenantData.landlord_phone
+      }
+    }
+
+    console.log('Final tenant data:', result)
+    return result
   },
 
   // Create profile from auth user data
@@ -618,6 +724,86 @@ export const tenants = {
     }))
 
     return [...availableUnits, ...propertiesForTenants]
+  },
+
+  // Get properties with their available units for hierarchical selection
+  getPropertiesWithAvailableUnits: async () => {
+    // Get current user first
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError) throw userError
+    if (!user) throw new Error('User not authenticated')
+
+    // Get all properties owned by the user
+    const { data: properties, error: propertiesError } = await supabase
+      .from('properties')
+      .select(`
+        id,
+        name,
+        address,
+        property_type
+      `)
+      .eq('owner_id', user.id)
+      .order('name', { ascending: true })
+
+    if (propertiesError) throw propertiesError
+
+    // Get available units for each property
+    const { data: units, error: unitsError } = await supabase
+      .from('units')
+      .select(`
+        *,
+        property:properties (
+          name,
+          address
+        )
+      `)
+      .eq('status', 'AVAILABLE')
+      .order('unit_number', { ascending: true })
+
+    if (unitsError) throw unitsError
+
+    // Group units by property
+    const unitsByProperty = (units || []).reduce((acc, unit) => {
+      if (!acc[unit.property_id]) {
+        acc[unit.property_id] = []
+      }
+      acc[unit.property_id].push(unit)
+      return acc
+    }, {} as Record<string, any[]>)
+
+    // Create the result structure
+    const result = (properties || []).map(property => {
+      const propertyUnits = unitsByProperty[property.id] || []
+      
+      // Check if this property has no units (for HOUSE/TOWNHOUSE/COMMERCIAL)
+      const hasNoUnits = propertyUnits.length === 0
+      
+      return {
+        id: property.id,
+        name: property.name,
+        address: property.address,
+        property_type: property.property_type,
+        units: propertyUnits,
+        hasNoUnits,
+        // Add a virtual "Entire Property" option for properties without units
+        entirePropertyOption: hasNoUnits ? {
+          id: `property-${property.id}`,
+          unit_number: 'Entire Property',
+          bedrooms: 1,
+          bathrooms: 1,
+          square_feet: null,
+          rent_amount: 0,
+          property_id: property.id,
+          property: {
+            name: property.name,
+            address: property.address
+          },
+          is_entire_property: true
+        } : null
+      }
+    })
+
+    return result
   },
 
   // Get all units for tenant editing (including occupied ones)

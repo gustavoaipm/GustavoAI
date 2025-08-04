@@ -77,7 +77,26 @@ export default function EditPropertyPage() {
     }
   }, [user, propertyId])
 
-  // (Rolled back) No automatic add unit on navigation
+  // Handle addUnit query parameter
+  useEffect(() => {
+    const addUnit = searchParams.get('addUnit')
+    if (addUnit === '1' && !isLoading && units.length > 0) {
+      // Add a new unit automatically
+      const nextUnitNumber = Math.max(...units.map(u => parseInt(u.unit_number) || 0)) + 1
+      addUnitWithNumber(nextUnitNumber)
+    }
+  }, [searchParams, isLoading, units])
+
+  const addUnitWithNumber = (unitNumber: number) => {
+    setUnits(prev => [...prev, {
+      unit_number: unitNumber.toString(),
+      bedrooms: 1,
+      bathrooms: 1,
+      square_feet: '',
+      rent_amount: '',
+      description: ''
+    }])
+  }
 
   const fetchProperty = async () => {
     try {
@@ -128,14 +147,8 @@ export default function EditPropertyPage() {
   }
 
   const addUnit = () => {
-    setUnits(prev => [...prev, {
-      unit_number: `${prev.length + 1}`,
-      bedrooms: 1,
-      bathrooms: 1,
-      square_feet: '',
-      rent_amount: '',
-      description: ''
-    }])
+    const nextUnitNumber = Math.max(...units.map(u => parseInt(u.unit_number) || 0)) + 1
+    addUnitWithNumber(nextUnitNumber)
   }
 
   const duplicateUnit = (index: number) => {
@@ -274,7 +287,7 @@ export default function EditPropertyPage() {
           await unitsApi.delete(dbUnit.id)
         }
       }
-
+      
       router.push(`/dashboard/properties/${propertyId}`)
     } catch (error) {
       console.error('Error updating property:', error)

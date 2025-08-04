@@ -36,8 +36,25 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('@/lib/supabase-utils', () => ({
   tenants: {
-    getAvailableUnits: jest.fn().mockResolvedValue([
-      { id: 'unit-1', unit_number: '1', rent_amount: 1200, property: { name: 'Test Property', address: '123 Main St' }, bedrooms: 2, bathrooms: 1 }
+    getPropertiesWithAvailableUnits: jest.fn().mockResolvedValue([
+      {
+        id: 'property-1',
+        name: 'Test Property',
+        address: '123 Main St',
+        property_type: 'APARTMENT',
+        units: [
+          { 
+            id: 'unit-1', 
+            unit_number: '1', 
+            rent_amount: 1200, 
+            property: { name: 'Test Property', address: '123 Main St' }, 
+            bedrooms: 2, 
+            bathrooms: 1 
+          }
+        ],
+        hasNoUnits: false,
+        entirePropertyOption: null
+      }
     ]),
     getAll: jest.fn().mockResolvedValue([]),
   },
@@ -75,12 +92,15 @@ jest.mock('@/lib/auth-context', () => {
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import AddTenantPage from '@/app/dashboard/tenants/new/page';
 import { AuthProvider } from '@/lib/auth-context';
+import { NotificationProvider } from '@/lib/notification-context';
 
 describe('AddTenantPage', () => {
   it('submits the form and creates a tenant invitation', async () => {
     render(
       <AuthProvider>
-        <AddTenantPage />
+        <NotificationProvider>
+          <AddTenantPage />
+        </NotificationProvider>
       </AuthProvider>
     );
 
@@ -97,6 +117,14 @@ describe('AddTenantPage', () => {
     fireEvent.change(screen.getByLabelText(/Emergency Contact Phone/i), { target: { value: '555-5678' } });
     fireEvent.change(screen.getByLabelText(/Lease Start Date/i), { target: { value: '2024-08-01' } });
     fireEvent.change(screen.getByLabelText(/Lease End Date/i), { target: { value: '2025-08-01' } });
+    
+    // Select property first
+    fireEvent.change(screen.getByLabelText(/Select Property/i), { target: { value: 'property-1' } });
+    
+    // Wait for unit selection to appear and select unit
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Select Unit/i)).toBeInTheDocument();
+    });
     fireEvent.change(screen.getByLabelText(/Select Unit/i), { target: { value: 'unit-1' } });
 
     // Wait for selected unit details to appear (ensures selectedUnit is set)

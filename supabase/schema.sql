@@ -65,6 +65,7 @@ CREATE TABLE public.units (
 -- Create tenants table
 CREATE TABLE public.tenants (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
     email TEXT UNIQUE NOT NULL,
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
@@ -78,6 +79,7 @@ CREATE TABLE public.tenants (
     rent_amount DECIMAL(10,2) NOT NULL,
     security_deposit DECIMAL(10,2) NOT NULL,
     unit_id UUID REFERENCES public.units(id) ON DELETE CASCADE NOT NULL,
+    property_id UUID REFERENCES public.properties(id) ON DELETE CASCADE NOT NULL,
     landlord_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -182,7 +184,9 @@ CREATE INDEX idx_properties_owner_id ON public.properties(owner_id);
 CREATE INDEX idx_units_property_id ON public.units(property_id);
 CREATE INDEX idx_units_status ON public.units(status);
 CREATE INDEX idx_tenants_unit_id ON public.tenants(unit_id);
+CREATE INDEX idx_tenants_property_id ON public.tenants(property_id);
 CREATE INDEX idx_tenants_landlord_id ON public.tenants(landlord_id);
+CREATE INDEX idx_tenants_user_id ON public.tenants(user_id);
 CREATE INDEX idx_payments_tenant_id ON public.payments(tenant_id);
 CREATE INDEX idx_payments_unit_id ON public.payments(unit_id);
 CREATE INDEX idx_payments_status ON public.payments(status);
@@ -389,24 +393,5 @@ CREATE POLICY "Tenant invitations are deletable by landlord" ON public.tenant_in
 CREATE POLICY "Tenant invitations are viewable by token" ON public.tenant_invitations
     FOR SELECT USING (true); -- This will be filtered by token in the application
 
--- Create function to handle user creation
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO public.users (id, email, first_name, last_name, phone, role)
-    VALUES (
-        NEW.id,
-        NEW.email,
-        COALESCE(NEW.raw_user_meta_data->>'first_name', ''),
-        COALESCE(NEW.raw_user_meta_data->>'last_name', ''),
-        COALESCE(NEW.raw_user_meta_data->>'phone', NULL),
-        COALESCE((NEW.raw_user_meta_data->>'role')::user_role, 'LANDLORD')
-    );
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Create trigger for new user creation
-CREATE TRIGGER on_auth_user_created
-    AFTER INSERT ON auth.users
-    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user(); 
+-- Note: User creation is now handled manually in the API
+-- No trigger needed for automatic public.users creation 

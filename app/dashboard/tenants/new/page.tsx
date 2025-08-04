@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { tenants } from '@/lib/supabase-utils'
 import { tenantInvitations } from '@/lib/supabase-utils'
 import { supabase } from '@/lib/supabaseClient'
 import DashboardNav from '@/app/components/DashboardNav'
+import PhoneInput from '@/app/components/PhoneInput'
+import { notifications } from '@/lib/notification-utils'
 import { 
   UserGroupIcon, 
   HomeIcon, 
@@ -31,6 +33,16 @@ interface Unit {
   is_entire_property?: boolean
 }
 
+interface PropertyWithUnits {
+  id: string
+  name: string
+  address: string
+  property_type: string
+  units: Unit[]
+  hasNoUnits: boolean
+  entirePropertyOption: Unit | null
+}
+
 interface TenantFormData {
   first_name: string
   last_name: string
@@ -44,14 +56,17 @@ interface TenantFormData {
   rent_amount: number | ''
   security_deposit: number | ''
   unit_id: string
+  property_id: string
 }
 
 export default function AddTenantPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
-  const [availableUnits, setAvailableUnits] = useState<Unit[]>([])
+  const searchParams = useSearchParams()
+  const [propertiesWithUnits, setPropertiesWithUnits] = useState<PropertyWithUnits[]>([])
+  const [selectedProperty, setSelectedProperty] = useState<PropertyWithUnits | null>(null)
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null)
-  const [isLoadingUnits, setIsLoadingUnits] = useState(true)
+  const [isLoadingProperties, setIsLoadingProperties] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   
   const [formData, setFormData] = useState<TenantFormData>({
@@ -66,23 +81,39 @@ export default function AddTenantPage() {
     lease_end: '',
     rent_amount: '',
     security_deposit: '',
-    unit_id: ''
+    unit_id: '',
+    property_id: ''
   })
 
   useEffect(() => {
     if (user) {
-      fetchAvailableUnits()
+      fetchPropertiesWithUnits()
     }
   }, [user])
 
-  const fetchAvailableUnits = async () => {
+  // Handle propertyId from query parameter
+  useEffect(() => {
+    const propertyId = searchParams.get('propertyId')
+    if (propertyId && propertiesWithUnits.length > 0) {
+      const property = propertiesWithUnits.find(p => p.id === propertyId)
+      if (property) {
+        setSelectedProperty(property)
+        setFormData(prev => ({
+          ...prev,
+          property_id: property.id
+        }))
+      }
+    }
+  }, [searchParams, propertiesWithUnits])
+
+  const fetchPropertiesWithUnits = async () => {
     try {
-      const data = await tenants.getAvailableUnits()
-      setAvailableUnits(data)
+      const data = await tenants.getPropertiesWithAvailableUnits()
+      setPropertiesWithUnits(data)
     } catch (error) {
-      console.error('Error fetching available units:', error)
+      console.error('Error fetching properties with units:', error)
     } finally {
-      setIsLoadingUnits(false)
+      setIsLoadingProperties(false)
     }
   }
 
@@ -92,9 +123,32 @@ export default function AddTenantPage() {
       [field]: value
     }))
 
+    // Handle property selection
+    if (field === 'property_id') {
+      const property = propertiesWithUnits.find(p => p.id === value)
+      setSelectedProperty(property || null)
+      setSelectedUnit(null)
+      setFormData(prev => ({
+        ...prev,
+        unit_id: '',
+        rent_amount: ''
+      }))
+    }
+
     // Auto-fill rent amount when unit is selected
     if (field === 'unit_id') {
-      const unit = availableUnits.find(u => u.id === value)
+      let unit: Unit | null = null
+      
+      if (selectedProperty) {
+        // Check if it's an entire property selection
+        if (value === selectedProperty.entirePropertyOption?.id) {
+          unit = selectedProperty.entirePropertyOption
+        } else {
+          // Check regular units
+          unit = selectedProperty.units.find(u => u.id === value) || null
+        }
+      }
+      
       if (unit) {
         setSelectedUnit(unit)
         setFormData(prev => ({
@@ -164,11 +218,11 @@ export default function AddTenantPage() {
         throw new Error('Failed to send invitation email')
       }
 
-      alert('Tenant invitation sent successfully! The tenant will receive an email to verify and create their account.')
+      notifications.tenantCreated()
       router.push('/dashboard/tenants')
     } catch (error) {
       console.error('Error creating tenant invitation:', error)
-      alert('Failed to send tenant invitation. Please try again.')
+      notifications.genericError('sending tenant invitation')
     } finally {
       setIsSubmitting(false)
     }
@@ -181,7 +235,7 @@ export default function AddTenantPage() {
     }).format(amount)
   }
 
-  if (loading || isLoadingUnits) {
+  if (loading || isLoadingProperties) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -223,11 +277,131 @@ export default function AddTenantPage() {
       {/* Form */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Basic Information */}
+          {/* Property Assignment */}
+          <div className="card">
+            <div className="flex items-center mb-6">
+              <HomeIcon className="h-6 w-6 text-primary-600 mr-3" />
+              <h2 className="text-xl font-semibold text-gray-900">Property Assignment</h2>
+            </div>
+            
+            <div className="space-y-6">
+              <div>
+                <label htmlFor="property_id" className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Property *
+                </label>
+                <select
+                  id="property_id"
+                  required
+                  value={formData.property_id}
+                  onChange={(e) => handleInputChange('property_id', e.target.value)}
+                  className="form-select"
+                >
+                  <option value="">Select a property</option>
+                  {propertiesWithUnits.map((property) => (
+                    <option key={property.id} value={property.id}>
+                      {property.name} ({property.address})
+                    </option>
+                  ))}
+                </select>
+                {propertiesWithUnits.length === 0 && (
+                  <p className="mt-2 text-sm text-red-600">
+                    <ExclamationTriangleIcon className="h-4 w-4 inline mr-1" />
+                    No properties found. Please add properties first.
+                  </p>
+                )}
+              </div>
+
+              {selectedProperty && (
+                <div>
+                  <label htmlFor="unit_id" className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Unit *
+                  </label>
+                  <select
+                    id="unit_id"
+                    required
+                    value={formData.unit_id}
+                    onChange={(e) => handleInputChange('unit_id', e.target.value)}
+                    className="form-select"
+                  >
+                    <option value="">Select a unit</option>
+                    {selectedProperty.units.map((unit) => (
+                      <option key={unit.id} value={unit.id}>
+                        Unit {unit.unit_number} ({unit.bedrooms} bed, {unit.bathrooms} bath) - {formatCurrency(unit.rent_amount)}
+                      </option>
+                    ))}
+                    {selectedProperty.entirePropertyOption && (
+                      <option key={selectedProperty.entirePropertyOption.id} value={selectedProperty.entirePropertyOption.id}>
+                        Entire Property
+                      </option>
+                    )}
+                  </select>
+                  {selectedProperty.units.length === 0 && !selectedProperty.entirePropertyOption && (
+                    <p className="mt-2 text-sm text-red-600">
+                      <ExclamationTriangleIcon className="h-4 w-4 inline mr-1" />
+                      No available units found for this property.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {selectedProperty && (
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="text-sm font-medium text-gray-900 mb-2">Selected Property Details</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-500">Property:</span>
+                      <p className="font-medium">{selectedProperty.name}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Address:</span>
+                      <p className="font-medium">{selectedProperty.address}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Type:</span>
+                      <p className="font-medium">{selectedProperty.property_type}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Available Units:</span>
+                      <p className="font-medium">
+                        {selectedProperty.units.length} units
+                        {selectedProperty.entirePropertyOption && ' + Entire property option'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedUnit && (
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="text-sm font-medium text-gray-900 mb-2">Selected Unit Details</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-500">Property:</span>
+                      <p className="font-medium">{selectedUnit.property.name}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Unit:</span>
+                      <p className="font-medium">{selectedUnit.unit_number}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Size:</span>
+                      <p className="font-medium">{selectedUnit.bedrooms} bed, {selectedUnit.bathrooms} bath</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Rent:</span>
+                      <p className="font-medium">{formatCurrency(selectedUnit.rent_amount)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Tenant Information */}
           <div className="card">
             <div className="flex items-center mb-6">
               <UserGroupIcon className="h-6 w-6 text-primary-600 mr-3" />
-              <h2 className="text-xl font-semibold text-gray-900">Basic Information</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Tenant Information</h2>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -276,20 +450,14 @@ export default function AddTenantPage() {
                 />
               </div>
 
-              <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                  Phone Number *
-                </label>
-                <input
-                  type="tel"
+              <PhoneInput
                   id="phone"
-                  required
+                label="Phone Number"
                   value={formData.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  className="form-input"
+                onChange={(formattedValue) => handleInputChange('phone', formattedValue)}
                   placeholder="(555) 123-4567"
+                required
                 />
-              </div>
 
               <div>
                 <label htmlFor="date_of_birth" className="block text-sm font-medium text-gray-700 mb-2">
@@ -318,27 +486,21 @@ export default function AddTenantPage() {
                 />
               </div>
 
-              <div>
-                <label htmlFor="emergency_phone" className="block text-sm font-medium text-gray-700 mb-2">
-                  Emergency Contact Phone
-                </label>
-                <input
-                  type="tel"
+              <PhoneInput
                   id="emergency_phone"
+                label="Emergency Contact Phone"
                   value={formData.emergency_phone}
-                  onChange={(e) => handleInputChange('emergency_phone', e.target.value)}
-                  className="form-input"
+                onChange={(formattedValue) => handleInputChange('emergency_phone', formattedValue)}
                   placeholder="(555) 987-6543"
                 />
-              </div>
             </div>
           </div>
 
-          {/* Lease Information */}
+          {/* Lease Dates */}
           <div className="card">
             <div className="flex items-center mb-6">
               <CalendarIcon className="h-6 w-6 text-primary-600 mr-3" />
-              <h2 className="text-xl font-semibold text-gray-900">Lease Information</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Lease Dates</h2>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -372,71 +534,11 @@ export default function AddTenantPage() {
             </div>
           </div>
 
-          {/* Property Assignment */}
-          <div className="card">
-            <div className="flex items-center mb-6">
-              <HomeIcon className="h-6 w-6 text-primary-600 mr-3" />
-              <h2 className="text-xl font-semibold text-gray-900">Property Assignment</h2>
-            </div>
-            
-            <div className="space-y-6">
-              <div>
-                <label htmlFor="unit_id" className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Unit *
-                </label>
-                <select
-                  id="unit_id"
-                  required
-                  value={formData.unit_id}
-                  onChange={(e) => handleInputChange('unit_id', e.target.value)}
-                  className="form-select"
-                >
-                  <option value="">Select a unit</option>
-                  {availableUnits.map((unit) => (
-                    <option key={unit.id} value={unit.id}>
-                      {unit.property.name} - Unit {unit.unit_number} ({unit.bedrooms} bed, {unit.bathrooms} bath)
-                    </option>
-                  ))}
-                </select>
-                {availableUnits.length === 0 && (
-                  <p className="mt-2 text-sm text-red-600">
-                    <ExclamationTriangleIcon className="h-4 w-4 inline mr-1" />
-                    No available units found. Please add units to your properties first.
-                  </p>
-                )}
-              </div>
-
-              {selectedUnit && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="text-sm font-medium text-gray-900 mb-2">Selected Unit Details</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500">Property:</span>
-                      <p className="font-medium">{selectedUnit.property.name}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Unit:</span>
-                      <p className="font-medium">{selectedUnit.unit_number}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Size:</span>
-                      <p className="font-medium">{selectedUnit.bedrooms} bed, {selectedUnit.bathrooms} bath</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Rent:</span>
-                      <p className="font-medium">{formatCurrency(selectedUnit.rent_amount)}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Financial Information */}
+          {/* Rent and Security Deposit */}
           <div className="card">
             <div className="flex items-center mb-6">
               <CurrencyDollarIcon className="h-6 w-6 text-primary-600 mr-3" />
-              <h2 className="text-xl font-semibold text-gray-900">Financial Information</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Rent and Security Deposit</h2>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
