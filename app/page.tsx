@@ -9,6 +9,7 @@ import {
   ChartBarIcon,
   ShieldCheckIcon
 } from '@heroicons/react/24/outline'
+import DemoVideo from './components/DemoVideo'
 
 export default function HomePage() {
   return (
@@ -63,6 +64,9 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      {/* Demo Video Section */}
+      <DemoVideo />
 
       {/* Features Section */}
       <div id="features" className="py-24 bg-white">
@@ -176,22 +180,22 @@ export default function HomePage() {
             <div>
               <h4 className="font-semibold mb-4">Support</h4>
               <ul className="space-y-2 text-gray-400">
-                <li><Link href="#" className="hover:text-white">Help Center</Link></li>
-                <li><Link href="#" className="hover:text-white">Contact</Link></li>
-                <li><Link href="#" className="hover:text-white">Status</Link></li>
+                <li><Link href="/support" className="hover:text-white">Help Center</Link></li>
+                <li><Link href="/support/contact" className="hover:text-white">Contact</Link></li>
+                <li><Link href="/support/status" className="hover:text-white">Status</Link></li>
               </ul>
             </div>
             <div>
               <h4 className="font-semibold mb-4">Company</h4>
               <ul className="space-y-2 text-gray-400">
-                <li><Link href="#" className="hover:text-white">About</Link></li>
-                <li><Link href="#" className="hover:text-white">Blog</Link></li>
-                <li><Link href="#" className="hover:text-white">Careers</Link></li>
+                <li><Link href="/about" className="hover:text-white">About</Link></li>
+                <li><Link href="/blog" className="hover:text-white">Blog</Link></li>
+                <li><Link href="/careers" className="hover:text-white">Careers</Link></li>
               </ul>
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 GustavoAI. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} GustavoAI. All rights reserved.</p>
           </div>
         </div>
       </footer>

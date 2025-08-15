@@ -8,9 +8,8 @@ import NotificationContainer from '@/app/components/NotificationContainer'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'GustavoAI - AI Property Manager',
-  description: 'Intelligent property management platform that automates tenant management, rent collection, and maintenance scheduling.',
-  keywords: 'property management, AI, automation, tenant management, rent collection',
+  title: 'GustavoAI - AI-Powered Property Management',
+  description: 'Intelligent property management platform with AI assistance for tenant management, rent collection, and maintenance scheduling.',
 }
 
 export default function RootLayout({
@@ -20,6 +19,26 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        {/* Prevent MetaMask from trying to connect */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Prevent MetaMask auto-connection attempts
+              if (typeof window !== 'undefined' && window.ethereum) {
+                // Override ethereum.request to prevent connection attempts
+                const originalRequest = window.ethereum.request;
+                window.ethereum.request = function(args) {
+                  if (args.method === 'eth_requestAccounts' || args.method === 'eth_accounts') {
+                    return Promise.reject(new Error('This application does not support Web3 connections'));
+                  }
+                  return originalRequest.call(this, args);
+                };
+              }
+            `,
+          }}
+        />
+      </head>
       <body className={inter.className}>
         <AuthProvider>
           <NotificationProvider>
