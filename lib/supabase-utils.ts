@@ -9,6 +9,8 @@ export type Payment = Database['public']['Tables']['payments']['Row']
 export type Maintenance = Database['public']['Tables']['maintenance']['Row']
 export type Notification = Database['public']['Tables']['notifications']['Row']
 export type Vendor = Database['public']['Tables']['vendors']['Row']
+export type Utility = Database['public']['Tables']['utilities']['Row']
+export type UtilityBill = Database['public']['Tables']['utility_bills']['Row']
 
 // Authentication utilities
 export const auth = {
@@ -1202,6 +1204,515 @@ export const vendors = {
       .select('*')
       .contains('services', [service])
       .order('rating', { ascending: false })
+
+    if (error) throw error
+    return data
+  }
+}
+
+// Utilities management
+export const utilities = {
+  // Get all utilities for a landlord's properties
+  getAll: async () => {
+    const { data, error } = await supabase
+      .from('utilities')
+      .select(`
+        *,
+        unit:units!utilities_unit_id_fkey(
+          id,
+          unit_number,
+          property:properties!units_property_id_fkey(
+            id,
+            name,
+            address
+          )
+        ),
+        tenant:tenants!utilities_tenant_id_fkey(
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data
+  },
+
+  // Get utilities for a specific unit
+  getByUnit: async (unitId: string) => {
+    const { data, error } = await supabase
+      .from('utilities')
+      .select(`
+        *,
+        unit:units!utilities_unit_id_fkey(
+          id,
+          unit_number,
+          property:properties!units_property_id_fkey(
+            id,
+            name,
+            address
+          )
+        ),
+        tenant:tenants!utilities_tenant_id_fkey(
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
+      .eq('unit_id', unitId)
+      .eq('is_active', true)
+      .order('utility_type')
+
+    if (error) throw error
+    return data
+  },
+
+  // Get utilities for a specific property
+  getByProperty: async (propertyId: string) => {
+    const { data, error } = await supabase
+      .from('utilities')
+      .select(`
+        *,
+        unit:units!utilities_unit_id_fkey(
+          id,
+          unit_number,
+          property:properties!units_property_id_fkey(
+            id,
+            name,
+            address
+          )
+        ),
+        tenant:tenants!utilities_tenant_id_fkey(
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
+      .eq('property_id', propertyId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data
+  },
+
+  // Get utilities for a tenant
+  getByTenant: async (tenantId: string) => {
+    const { data, error } = await supabase
+      .from('utilities')
+      .select(`
+        *,
+        unit:units!utilities_unit_id_fkey(
+          id,
+          unit_number,
+          property:properties!units_property_id_fkey(
+            id,
+            name,
+            address
+          )
+        ),
+        tenant:tenants!utilities_tenant_id_fkey(
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .order('utility_type')
+
+    if (error) throw error
+    return data
+  },
+
+  // Create a new utility
+  create: async (utilityData: {
+    unit_id: string
+    property_id: string
+    tenant_id?: string
+    utility_type: 'ELECTRIC' | 'WATER' | 'GAS' | 'SEWER' | 'TRASH' | 'INTERNET' | 'CABLE' | 'OTHER'
+    utility_name: string
+    provider_name?: string
+    account_number?: string
+    is_included_in_rent?: boolean
+    is_submetered?: boolean
+    billing_frequency?: string
+    base_rate?: number
+    unit_of_measurement?: string
+    late_fee_percentage?: number
+    grace_period_days?: number
+    notes?: string
+  }) => {
+    const { data, error } = await supabase
+      .from('utilities')
+      .insert(utilityData)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  // Update a utility
+  update: async (id: string, updates: Partial<Utility>) => {
+    const { data, error } = await supabase
+      .from('utilities')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  // Delete a utility
+  delete: async (id: string) => {
+    const { error } = await supabase
+      .from('utilities')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  },
+
+  // Get utility by ID
+  getById: async (id: string) => {
+    const { data, error } = await supabase
+      .from('utilities')
+      .select(`
+        *,
+        unit:units!utilities_unit_id_fkey(
+          id,
+          unit_number,
+          property:properties!units_property_id_fkey(
+            id,
+            name,
+            address
+          )
+        ),
+        tenant:tenants!utilities_tenant_id_fkey(
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
+      .eq('id', id)
+      .single()
+
+    if (error) throw error
+    return data
+  }
+}
+
+// Utility bills management
+export const utilityBills = {
+  // Get all utility bills for a landlord's properties
+  getAll: async () => {
+    const { data, error } = await supabase
+      .from('utility_bills')
+      .select(`
+        *,
+        utility:utilities!utility_bills_utility_id_fkey(
+          id,
+          utility_name,
+          utility_type,
+          provider_name,
+          unit_of_measurement
+        ),
+        unit:units!utility_bills_unit_id_fkey(
+          id,
+          unit_number,
+          property:properties!units_property_id_fkey(
+            id,
+            name,
+            address
+          )
+        ),
+        tenant:tenants!utility_bills_tenant_id_fkey(
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
+      .order('billing_period_start', { ascending: false })
+
+    if (error) throw error
+    return data
+  },
+
+  // Get utility bills for a specific utility
+  getByUtility: async (utilityId: string) => {
+    const { data, error } = await supabase
+      .from('utility_bills')
+      .select(`
+        *,
+        utility:utilities!utility_bills_utility_id_fkey(
+          id,
+          utility_name,
+          utility_type,
+          provider_name,
+          unit_of_measurement
+        ),
+        unit:units!utility_bills_unit_id_fkey(
+          id,
+          unit_number,
+          property:properties!units_property_id_fkey(
+            id,
+            name,
+            address
+          )
+        ),
+        tenant:tenants!utility_bills_tenant_id_fkey(
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
+      .eq('utility_id', utilityId)
+      .order('billing_period_start', { ascending: false })
+
+    if (error) throw error
+    return data
+  },
+
+  // Get utility bills for a tenant
+  getByTenant: async (tenantId: string) => {
+    const { data, error } = await supabase
+      .from('utility_bills')
+      .select(`
+        *,
+        utility:utilities!utility_bills_utility_id_fkey(
+          id,
+          utility_name,
+          utility_type,
+          provider_name,
+          unit_of_measurement
+        ),
+        unit:units!utility_bills_unit_id_fkey(
+          id,
+          unit_number,
+          property:properties!units_property_id_fkey(
+            id,
+            name,
+            address
+          )
+        ),
+        tenant:tenants!utility_bills_tenant_id_fkey(
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
+      .eq('tenant_id', tenantId)
+      .order('billing_period_start', { ascending: false })
+
+    if (error) throw error
+    return data
+  },
+
+  // Get utility bills for a specific unit
+  getByUnit: async (unitId: string) => {
+    const { data, error } = await supabase
+      .from('utility_bills')
+      .select(`
+        *,
+        utility:utilities!utility_bills_utility_id_fkey(
+          id,
+          utility_name,
+          utility_type,
+          provider_name,
+          unit_of_measurement
+        ),
+        unit:units!utility_bills_unit_id_fkey(
+          id,
+          unit_number,
+          property:properties!units_property_id_fkey(
+            id,
+            name,
+            address
+          )
+        ),
+        tenant:tenants!utility_bills_tenant_id_fkey(
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
+      .eq('unit_id', unitId)
+      .order('billing_period_start', { ascending: false })
+
+    if (error) throw error
+    return data
+  },
+
+  // Create a new utility bill
+  create: async (billData: {
+    utility_id: string
+    unit_id: string
+    property_id: string
+    tenant_id?: string
+    billing_period_start: string
+    billing_period_end: string
+    due_date: string
+    amount: number
+    usage_amount?: number
+    usage_unit?: string
+    rate_per_unit?: number
+    base_charges?: number
+    late_fee?: number
+    total_amount: number
+    invoice_number?: string
+    meter_reading_previous?: number
+    meter_reading_current?: number
+    notes?: string
+  }) => {
+    const { data, error } = await supabase
+      .from('utility_bills')
+      .insert(billData)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  // Update a utility bill
+  update: async (id: string, updates: Partial<UtilityBill>) => {
+    const { data, error } = await supabase
+      .from('utility_bills')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  // Delete a utility bill
+  delete: async (id: string) => {
+    const { error } = await supabase
+      .from('utility_bills')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  },
+
+  // Get utility bill by ID
+  getById: async (id: string) => {
+    const { data, error } = await supabase
+      .from('utility_bills')
+      .select(`
+        *,
+        utility:utilities!utility_bills_utility_id_fkey(
+          id,
+          utility_name,
+          utility_type,
+          provider_name,
+          unit_of_measurement
+        ),
+        unit:units!utility_bills_unit_id_fkey(
+          id,
+          unit_number,
+          property:properties!units_property_id_fkey(
+            id,
+            name,
+            address
+          )
+        ),
+        tenant:tenants!utility_bills_tenant_id_fkey(
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
+      .eq('id', id)
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  // Get overdue utility bills
+  getOverdue: async () => {
+    const { data, error } = await supabase
+      .from('utility_bills')
+      .select(`
+        *,
+        utility:utilities!utility_bills_utility_id_fkey(
+          id,
+          utility_name,
+          utility_type,
+          provider_name,
+          unit_of_measurement
+        ),
+        unit:units!utility_bills_unit_id_fkey(
+          id,
+          unit_number,
+          property:properties!units_property_id_fkey(
+            id,
+            name,
+            address
+          )
+        ),
+        tenant:tenants!utility_bills_tenant_id_fkey(
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
+      .eq('status', 'PENDING')
+      .lt('due_date', new Date().toISOString().split('T')[0])
+      .order('due_date', { ascending: true })
+
+    if (error) throw error
+    return data
+  },
+
+  // Get pending utility bills
+  getPending: async () => {
+    const { data, error } = await supabase
+      .from('utility_bills')
+      .select(`
+        *,
+        utility:utilities!utility_bills_utility_id_fkey(
+          id,
+          utility_name,
+          utility_type,
+          provider_name,
+          unit_of_measurement
+        ),
+        unit:units!utility_bills_unit_id_fkey(
+          id,
+          unit_number,
+          property:properties!units_property_id_fkey(
+            id,
+            name,
+            address
+          )
+        ),
+        tenant:tenants!utility_bills_tenant_id_fkey(
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
+      .eq('status', 'PENDING')
+      .order('due_date', { ascending: true })
 
     if (error) throw error
     return data

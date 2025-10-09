@@ -7,10 +7,35 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -34,7 +59,7 @@ export type Database = {
           tenant_id: string | null
           title: string
           type: Database["public"]["Enums"]["maintenance_type"]
-          unit_id: string | null
+          unit_id: string
           updated_at: string | null
           vendor_email: string | null
           vendor_id: string | null
@@ -60,7 +85,7 @@ export type Database = {
           tenant_id?: string | null
           title: string
           type: Database["public"]["Enums"]["maintenance_type"]
-          unit_id?: string | null
+          unit_id: string
           updated_at?: string | null
           vendor_email?: string | null
           vendor_id?: string | null
@@ -86,7 +111,7 @@ export type Database = {
           tenant_id?: string | null
           title?: string
           type?: Database["public"]["Enums"]["maintenance_type"]
-          unit_id?: string | null
+          unit_id?: string
           updated_at?: string | null
           vendor_email?: string | null
           vendor_id?: string | null
@@ -98,8 +123,22 @@ export type Database = {
             foreignKeyName: "maintenance_assigned_to_id_fkey"
             columns: ["assigned_to_id"]
             isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "maintenance_assigned_to_id_fkey"
+            columns: ["assigned_to_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["property_id"]
           },
           {
             foreignKeyName: "maintenance_property_id_fkey"
@@ -109,11 +148,46 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "maintenance_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_dashboard_data"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "maintenance_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "maintenance_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_dashboard_data"
+            referencedColumns: ["tenant_id"]
+          },
+          {
             foreignKeyName: "maintenance_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "maintenance_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_dashboard_data"
+            referencedColumns: ["unit_id"]
           },
           {
             foreignKeyName: "maintenance_unit_id_fkey"
@@ -193,6 +267,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["landlord_id"]
+          },
           {
             foreignKeyName: "notifications_user_id_fkey"
             columns: ["user_id"]
@@ -286,6 +367,13 @@ export type Database = {
             foreignKeyName: "payments_landlord_id_fkey"
             columns: ["landlord_id"]
             isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "payments_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -293,8 +381,36 @@ export type Database = {
             foreignKeyName: "payments_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_dashboard_data"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "payments_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_dashboard_data"
+            referencedColumns: ["unit_id"]
           },
           {
             foreignKeyName: "payments_unit_id_fkey"
@@ -355,6 +471,13 @@ export type Database = {
           zip_code?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "properties_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["landlord_id"]
+          },
           {
             foreignKeyName: "properties_owner_id_fkey"
             columns: ["owner_id"]
@@ -436,8 +559,29 @@ export type Database = {
             foreignKeyName: "tenant_invitations_landlord_id_fkey"
             columns: ["landlord_id"]
             isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "tenant_invitations_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_invitations_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "tenant_invitations_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_dashboard_data"
+            referencedColumns: ["unit_id"]
           },
           {
             foreignKeyName: "tenant_invitations_unit_id_fkey"
@@ -468,6 +612,7 @@ export type Database = {
           status: Database["public"]["Enums"]["tenant_status"] | null
           unit_id: string | null
           updated_at: string | null
+          user_id: string
         }
         Insert: {
           created_at?: string | null
@@ -488,6 +633,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["tenant_status"] | null
           unit_id?: string | null
           updated_at?: string | null
+          user_id: string
         }
         Update: {
           created_at?: string | null
@@ -508,8 +654,16 @@ export type Database = {
           status?: Database["public"]["Enums"]["tenant_status"] | null
           unit_id?: string | null
           updated_at?: string | null
+          user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tenants_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["landlord_id"]
+          },
           {
             foreignKeyName: "tenants_landlord_id_fkey"
             columns: ["landlord_id"]
@@ -521,7 +675,35 @@ export type Database = {
             foreignKeyName: "tenants_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "tenants_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_dashboard_data"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "tenants_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
             referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "tenants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -574,8 +756,22 @@ export type Database = {
             foreignKeyName: "units_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "units_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_dashboard_data"
+            referencedColumns: ["property_id"]
           },
         ]
       }
@@ -614,6 +810,295 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      utilities: {
+        Row: {
+          account_number: string | null
+          base_rate: number | null
+          billing_frequency: string | null
+          created_at: string | null
+          grace_period_days: number | null
+          id: string
+          is_active: boolean | null
+          is_included_in_rent: boolean | null
+          is_submetered: boolean | null
+          late_fee_percentage: number | null
+          notes: string | null
+          property_id: string
+          provider_name: string | null
+          tenant_id: string | null
+          unit_id: string
+          unit_of_measurement: string | null
+          updated_at: string | null
+          utility_name: string
+          utility_type: Database["public"]["Enums"]["utility_type"]
+        }
+        Insert: {
+          account_number?: string | null
+          base_rate?: number | null
+          billing_frequency?: string | null
+          created_at?: string | null
+          grace_period_days?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_included_in_rent?: boolean | null
+          is_submetered?: boolean | null
+          late_fee_percentage?: number | null
+          notes?: string | null
+          property_id: string
+          provider_name?: string | null
+          tenant_id?: string | null
+          unit_id: string
+          unit_of_measurement?: string | null
+          updated_at?: string | null
+          utility_name: string
+          utility_type: Database["public"]["Enums"]["utility_type"]
+        }
+        Update: {
+          account_number?: string | null
+          base_rate?: number | null
+          billing_frequency?: string | null
+          created_at?: string | null
+          grace_period_days?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_included_in_rent?: boolean | null
+          is_submetered?: boolean | null
+          late_fee_percentage?: number | null
+          notes?: string | null
+          property_id?: string
+          provider_name?: string | null
+          tenant_id?: string | null
+          unit_id?: string
+          unit_of_measurement?: string | null
+          updated_at?: string | null
+          utility_name?: string
+          utility_type?: Database["public"]["Enums"]["utility_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "utilities_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "utilities_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utilities_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_dashboard_data"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "utilities_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "utilities_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_dashboard_data"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "utilities_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utilities_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "utilities_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_dashboard_data"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "utilities_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      utility_bills: {
+        Row: {
+          amount: number
+          base_charges: number | null
+          billing_period_end: string
+          billing_period_start: string
+          created_at: string | null
+          due_date: string
+          id: string
+          invoice_number: string | null
+          late_fee: number | null
+          meter_reading_current: number | null
+          meter_reading_previous: number | null
+          notes: string | null
+          paid_date: string | null
+          payment_id: string | null
+          property_id: string
+          rate_per_unit: number | null
+          status: Database["public"]["Enums"]["payment_status"] | null
+          tenant_id: string | null
+          total_amount: number
+          unit_id: string
+          updated_at: string | null
+          usage_amount: number | null
+          usage_unit: string | null
+          utility_id: string
+        }
+        Insert: {
+          amount: number
+          base_charges?: number | null
+          billing_period_end: string
+          billing_period_start: string
+          created_at?: string | null
+          due_date: string
+          id?: string
+          invoice_number?: string | null
+          late_fee?: number | null
+          meter_reading_current?: number | null
+          meter_reading_previous?: number | null
+          notes?: string | null
+          paid_date?: string | null
+          payment_id?: string | null
+          property_id: string
+          rate_per_unit?: number | null
+          status?: Database["public"]["Enums"]["payment_status"] | null
+          tenant_id?: string | null
+          total_amount: number
+          unit_id: string
+          updated_at?: string | null
+          usage_amount?: number | null
+          usage_unit?: string | null
+          utility_id: string
+        }
+        Update: {
+          amount?: number
+          base_charges?: number | null
+          billing_period_end?: string
+          billing_period_start?: string
+          created_at?: string | null
+          due_date?: string
+          id?: string
+          invoice_number?: string | null
+          late_fee?: number | null
+          meter_reading_current?: number | null
+          meter_reading_previous?: number | null
+          notes?: string | null
+          paid_date?: string | null
+          payment_id?: string | null
+          property_id?: string
+          rate_per_unit?: number | null
+          status?: Database["public"]["Enums"]["payment_status"] | null
+          tenant_id?: string | null
+          total_amount?: number
+          unit_id?: string
+          updated_at?: string | null
+          usage_amount?: number | null
+          usage_unit?: string | null
+          utility_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "utility_bills_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utility_bills_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "utility_bills_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utility_bills_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_dashboard_data"
+            referencedColumns: ["property_id"]
+          },
+          {
+            foreignKeyName: "utility_bills_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "utility_bills_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_dashboard_data"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "utility_bills_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utility_bills_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_dashboard_data"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "utility_bills_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_dashboard_data"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "utility_bills_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utility_bills_utility_id_fkey"
+            columns: ["utility_id"]
+            isOneToOne: false
+            referencedRelation: "utilities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vendors: {
         Row: {
@@ -665,10 +1150,96 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      landlord_dashboard_data: {
+        Row: {
+          bathrooms: number | null
+          bedrooms: number | null
+          created_at: string | null
+          email: string | null
+          first_name: string | null
+          landlord_id: string | null
+          last_name: string | null
+          lease_end: string | null
+          lease_start: string | null
+          phone: string | null
+          property_address: string | null
+          property_city: string | null
+          property_id: string | null
+          property_name: string | null
+          property_state: string | null
+          property_status:
+            | Database["public"]["Enums"]["old_property_status"]
+            | null
+          property_type: Database["public"]["Enums"]["property_type"] | null
+          property_zip: string | null
+          role: Database["public"]["Enums"]["user_role"] | null
+          square_feet: number | null
+          tenant_email: string | null
+          tenant_first_name: string | null
+          tenant_id: string | null
+          tenant_last_name: string | null
+          tenant_phone: string | null
+          tenant_rent: number | null
+          tenant_status: Database["public"]["Enums"]["tenant_status"] | null
+          total_units: number | null
+          unit_id: string | null
+          unit_number: string | null
+          unit_rent: number | null
+          unit_status: Database["public"]["Enums"]["unit_status"] | null
+        }
+        Relationships: []
+      }
+      tenant_dashboard_data: {
+        Row: {
+          bathrooms: number | null
+          bedrooms: number | null
+          created_at: string | null
+          date_of_birth: string | null
+          email: string | null
+          emergency_contact: string | null
+          emergency_phone: string | null
+          first_name: string | null
+          landlord_email: string | null
+          landlord_first_name: string | null
+          landlord_id: string | null
+          landlord_last_name: string | null
+          landlord_phone: string | null
+          last_name: string | null
+          lease_end: string | null
+          lease_start: string | null
+          phone: string | null
+          property_address: string | null
+          property_city: string | null
+          property_id: string | null
+          property_name: string | null
+          property_state: string | null
+          property_type: Database["public"]["Enums"]["property_type"] | null
+          property_zip: string | null
+          rent_amount: number | null
+          security_deposit: number | null
+          square_feet: number | null
+          status: Database["public"]["Enums"]["tenant_status"] | null
+          tenant_id: string | null
+          unit_id: string | null
+          unit_number: string | null
+          unit_rent: number | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      get_secure_user_data: {
+        Args: { target_user_id: string }
+        Returns: {
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          phone: string
+          role: string
+        }[]
+      }
     }
     Enums: {
       maintenance_status:
@@ -694,6 +1265,8 @@ export type Database = {
         | "MAINTENANCE_COMPLETED"
         | "LEASE_EXPIRING"
         | "GENERAL"
+        | "UTILITY_BILL_DUE"
+        | "UTILITY_BILL_OVERDUE"
       old_property_status:
         | "AVAILABLE"
         | "OCCUPIED"
@@ -722,6 +1295,15 @@ export type Database = {
         | "UNAVAILABLE"
         | "RESERVED"
       user_role: "LANDLORD" | "TENANT" | "ADMIN"
+      utility_type:
+        | "ELECTRIC"
+        | "WATER"
+        | "GAS"
+        | "SEWER"
+        | "TRASH"
+        | "INTERNET"
+        | "CABLE"
+        | "OTHER"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -847,6 +1429,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       maintenance_status: [
@@ -874,6 +1459,8 @@ export const Constants = {
         "MAINTENANCE_COMPLETED",
         "LEASE_EXPIRING",
         "GENERAL",
+        "UTILITY_BILL_DUE",
+        "UTILITY_BILL_OVERDUE",
       ],
       old_property_status: [
         "AVAILABLE",
@@ -901,6 +1488,16 @@ export const Constants = {
         "RESERVED",
       ],
       user_role: ["LANDLORD", "TENANT", "ADMIN"],
+      utility_type: [
+        "ELECTRIC",
+        "WATER",
+        "GAS",
+        "SEWER",
+        "TRASH",
+        "INTERNET",
+        "CABLE",
+        "OTHER",
+      ],
     },
   },
 } as const

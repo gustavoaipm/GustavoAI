@@ -11,7 +11,8 @@ import {
   WrenchScrewdriverIcon,
   BellIcon,
   ChartBarIcon,
-  ArrowRightOnRectangleIcon
+  ArrowRightOnRectangleIcon,
+  BoltIcon
 } from '@heroicons/react/24/outline'
 import { useAuth } from '@/lib/auth-context'
 
@@ -50,6 +51,11 @@ export default function DashboardNav() {
           icon: CurrencyDollarIcon,
         },
         {
+          name: 'Utilities',
+          href: '/dashboard/utilities/tenant',
+          icon: BoltIcon,
+        },
+        {
           name: 'Calendar',
           href: '/dashboard/calendar',
           icon: CalendarIcon,
@@ -78,6 +84,11 @@ export default function DashboardNav() {
         name: 'Payments',
         href: '/dashboard/payments',
         icon: CurrencyDollarIcon,
+      },
+      {
+        name: 'Utilities',
+        href: '/dashboard/utilities',
+        icon: BoltIcon,
       },
       {
         name: 'Maintenance',
