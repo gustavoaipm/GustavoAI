@@ -128,8 +128,8 @@ export default function DashboardNav() {
                 GustavoAI
               </Link>
             </div>
-            <div className="hidden md:block ml-10">
-              <div className="flex space-x-4">
+            <div className="hidden md:block ml-2">
+              <div className="flex space-x-2">
                 {navItems.map((item) => {
                   const isActive = pathname === item.href
                   return (
@@ -151,7 +151,7 @@ export default function DashboardNav() {
             </div>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
             <div className="hidden md:block">
               <div className="text-sm text-gray-600">
                 Welcome, <span className="font-medium text-gray-900">{user?.first_name}</span>
@@ -162,9 +162,8 @@ export default function DashboardNav() {
             </div>
             <button
               onClick={handleSignOut}
-              className="flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors duration-200"
+              className="bg-red-600 text-white px-3 py-2 rounded"
             >
-              <ArrowRightOnRectangleIcon className="h-4 w-4 mr-2" />
               Sign Out
             </button>
           </div>
