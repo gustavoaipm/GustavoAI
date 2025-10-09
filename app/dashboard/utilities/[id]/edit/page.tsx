@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import DashboardNav from '@/app/components/DashboardNav'
 import { utilities, properties, tenants } from '@/lib/supabase-utils'
 import { useAuth } from '@/lib/auth-context'
@@ -40,10 +40,31 @@ const UNIT_OF_MEASUREMENT_OPTIONS = {
   OTHER: ['units', 'items', 'services']
 }
 
-export default function NewUtilityPage() {
+interface UtilityFormData {
+  unit_id: string
+  property_id: string
+  tenant_id: string
+  utility_type: 'ELECTRIC' | 'WATER' | 'GAS' | 'SEWER' | 'TRASH' | 'INTERNET' | 'CABLE' | 'OTHER'
+  utility_name: string
+  provider_name: string
+  account_number: string
+  is_included_in_rent: boolean
+  is_submetered: boolean
+  billing_frequency: 'MONTHLY' | 'QUARTERLY' | 'ANNUALLY'
+  base_rate: number | ''
+  unit_of_measurement: string
+  late_fee_percentage: number | ''
+  grace_period_days: number | ''
+  notes: string
+}
+
+export default function EditUtilityPage() {
   const router = useRouter()
   const { user, loading } = useAuth()
-  const [form, setForm] = useState({
+  const params = useParams()
+  const utilityId = params.id as string
+
+  const [form, setForm] = useState<UtilityFormData>({
     unit_id: '',
     property_id: '',
     tenant_id: '',
@@ -56,16 +77,18 @@ export default function NewUtilityPage() {
     billing_frequency: 'MONTHLY',
     base_rate: '',
     unit_of_measurement: '',
-    late_fee_percentage: '5.00',
-    grace_period_days: '5',
+    late_fee_percentage: '',
+    grace_period_days: '',
     notes: ''
   })
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState(false)
+
   const [propertiesList, setProperties] = useState<any[]>([])
   const [units, setUnits] = useState<any[]>([])
   const [tenantsList, setTenants] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -74,68 +97,60 @@ export default function NewUtilityPage() {
   }, [user, loading, router])
 
   useEffect(() => {
-    if (user && user.role !== 'TENANT') {
-      fetchProperties()
-      fetchTenants()
+    if (user && user.role !== 'TENANT' && utilityId) {
+      fetchData()
     }
-  }, [user])
+  }, [user, utilityId])
 
-  const fetchProperties = async () => {
+  const fetchData = async () => {
     try {
-      const data = await properties.getAll()
-      setProperties(data)
-      // Flatten all units for selection
-      const allUnits = data.flatMap((p: any) =>
-        (p.units || []).map((u: any) => ({ ...u, property: { id: p.id, name: p.name } }))
-      )
-      setUnits(allUnits)
+      setIsLoading(true)
+      setError('')
+
+      // Fetch the utility data
+      const utility = await utilities.getById(utilityId)
+      
+      // Set form data
+      setForm({
+        unit_id: utility.unit_id,
+        property_id: utility.property_id,
+        tenant_id: utility.tenant_id || '',
+        utility_type: utility.utility_type,
+        utility_name: utility.utility_name,
+        provider_name: utility.provider_name || '',
+        account_number: utility.account_number || '',
+        is_included_in_rent: utility.is_included_in_rent || false,
+        is_submetered: utility.is_submetered || false,
+        billing_frequency: utility.billing_frequency || 'MONTHLY',
+        base_rate: utility.base_rate || '',
+        unit_of_measurement: utility.unit_of_measurement || '',
+        late_fee_percentage: utility.late_fee_percentage || '',
+        grace_period_days: utility.grace_period_days || '',
+        notes: utility.notes || ''
+      })
+
+      // Fetch properties, units, and tenants for dropdowns
+      const [propertiesData, tenantsData] = await Promise.all([
+        properties.getAll(),
+        tenants.getAll()
+      ])
+      
+      setProperties(propertiesData || [])
+      setTenants(tenantsData || [])
+
+      // Set units based on the property
+      if (utility.property_id) {
+        const selectedProperty = propertiesData?.find(p => p.id === utility.property_id)
+        const propertyUnits = selectedProperty?.units || []
+        setUnits(propertyUnits.map((u: any) => ({ ...u, property: { id: utility.property_id, name: selectedProperty.name } })))
+      }
+
     } catch (err) {
-      setError('Failed to load properties/units.')
+      console.error('Error fetching data:', err)
+      setError('Failed to load utility data. Please try again.')
+    } finally {
+      setIsLoading(false)
     }
-  }
-
-  const fetchTenants = async () => {
-    try {
-      const data = await tenants.getAll()
-      setTenants(data)
-    } catch (err) {
-      setError('Failed to load tenants.')
-    }
-  }
-
-  const handlePropertyChange = (propertyId: string) => {
-    const selectedProperty = propertiesList.find(p => p.id === propertyId)
-    const propertyUnits = selectedProperty?.units || []
-    const propertyTenants = tenantsList.filter(t => t.property_id === propertyId)
-    
-    setUnits(propertyUnits.map((u: any) => ({ ...u, property: { id: propertyId, name: selectedProperty.name } })))
-    setForm(prev => ({
-      ...prev,
-      property_id: propertyId,
-      unit_id: '',
-      tenant_id: ''
-    }))
-  }
-
-  const handleUnitChange = (unitId: string) => {
-    const selectedUnit = units.find(u => u.id === unitId)
-    const unitTenants = tenantsList.filter(t => t.unit_id === unitId)
-    
-    setForm(prev => ({
-      ...prev,
-      unit_id: unitId,
-      tenant_id: unitTenants.length === 1 ? unitTenants[0].id : ''
-    }))
-  }
-
-  const handleUtilityTypeChange = (utilityType: string) => {
-    const defaultUnit = UNIT_OF_MEASUREMENT_OPTIONS[utilityType as keyof typeof UNIT_OF_MEASUREMENT_OPTIONS]?.[0] || ''
-    
-    setForm(prev => ({
-      ...prev,
-      utility_type: utilityType,
-      unit_of_measurement: prev.unit_of_measurement || defaultUnit
-    }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -153,15 +168,24 @@ export default function NewUtilityPage() {
 
     try {
       const utilityData = {
-        ...form,
-        utility_type: form.utility_type as 'ELECTRIC' | 'WATER' | 'GAS' | 'SEWER' | 'TRASH' | 'INTERNET' | 'CABLE' | 'OTHER',
-        base_rate: form.base_rate ? parseFloat(form.base_rate) : undefined,
-        late_fee_percentage: parseFloat(form.late_fee_percentage),
-        grace_period_days: parseInt(form.grace_period_days),
-        tenant_id: form.tenant_id || undefined
+        unit_id: form.unit_id,
+        property_id: form.property_id,
+        tenant_id: form.tenant_id || undefined,
+        utility_type: form.utility_type,
+        utility_name: form.utility_name,
+        provider_name: form.provider_name || undefined,
+        account_number: form.account_number || undefined,
+        is_included_in_rent: form.is_included_in_rent,
+        is_submetered: form.is_submetered,
+        billing_frequency: form.billing_frequency,
+        base_rate: form.base_rate ? Number(form.base_rate) : undefined,
+        unit_of_measurement: form.unit_of_measurement || undefined,
+        late_fee_percentage: form.late_fee_percentage ? Number(form.late_fee_percentage) : undefined,
+        grace_period_days: form.grace_period_days ? Number(form.grace_period_days) : undefined,
+        notes: form.notes || undefined
       }
 
-      await utilities.create(utilityData)
+      await utilities.update(utilityId, utilityData)
       setSuccess(true)
       
       // Redirect after success
@@ -169,14 +193,55 @@ export default function NewUtilityPage() {
         router.push('/dashboard/utilities')
       }, 2000)
     } catch (err) {
-      setError('Failed to create utility. Please try again.')
-      console.error('Error creating utility:', err)
+      setError('Failed to update utility. Please try again.')
+      console.error('Error updating utility:', err)
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  if (loading) {
+  const handleInputChange = (field: keyof UtilityFormData, value: string | number | boolean) => {
+    setForm(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  const handlePropertyChange = (propertyId: string) => {
+    const selectedProperty = propertiesList.find(p => p.id === propertyId)
+    const propertyUnits = selectedProperty?.units || []
+    const propertyTenants = tenantsList.filter(t => t.property_id === propertyId)
+    
+    setUnits(propertyUnits.map((u: any) => ({ ...u, property: { id: propertyId, name: selectedProperty.name } })))
+    setForm(prev => ({
+      ...prev,
+      property_id: propertyId,
+      unit_id: '',
+      tenant_id: ''
+    }))
+  }
+
+  const handleUnitChange = (unitId: string) => {
+    const unitTenants = tenantsList.filter(t => t.unit_id === unitId)
+    
+    setForm(prev => ({
+      ...prev,
+      unit_id: unitId,
+      tenant_id: unitTenants.length === 1 ? unitTenants[0].id : ''
+    }))
+  }
+
+  const handleUtilityTypeChange = (utilityType: string) => {
+    const defaultUnit = UNIT_OF_MEASUREMENT_OPTIONS[utilityType as keyof typeof UNIT_OF_MEASUREMENT_OPTIONS]?.[0] || ''
+    
+    setForm(prev => ({
+      ...prev,
+      utility_type: utilityType as any,
+      unit_of_measurement: prev.unit_of_measurement || defaultUnit
+    }))
+  }
+
+  if (loading || isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <DashboardNav />
@@ -209,9 +274,9 @@ export default function NewUtilityPage() {
               <ArrowLeftIcon className="h-4 w-4 mr-1" />
               Back
             </button>
-            <h2 className="text-2xl font-bold text-gray-900">Add New Utility</h2>
+            <h2 className="text-2xl font-bold text-gray-900">Edit Utility</h2>
             <p className="mt-1 text-sm text-gray-500">
-              Set up a new utility service for a unit
+              Update utility service information
             </p>
           </div>
 
@@ -223,7 +288,7 @@ export default function NewUtilityPage() {
                 <div className="ml-3">
                   <h3 className="text-sm font-medium text-green-800">Success!</h3>
                   <div className="mt-2 text-sm text-green-700">
-                    <p>Utility has been created successfully. Redirecting...</p>
+                    <p>Utility has been updated successfully. Redirecting...</p>
                   </div>
                 </div>
               </div>
@@ -306,7 +371,7 @@ export default function NewUtilityPage() {
                     <select
                       id="tenant_id"
                       value={form.tenant_id}
-                      onChange={(e) => setForm(prev => ({ ...prev, tenant_id: e.target.value }))}
+                      onChange={(e) => handleInputChange('tenant_id', e.target.value)}
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                       disabled={!form.unit_id}
                     >
@@ -352,7 +417,7 @@ export default function NewUtilityPage() {
                       type="text"
                       id="utility_name"
                       value={form.utility_name}
-                      onChange={(e) => setForm(prev => ({ ...prev, utility_name: e.target.value }))}
+                      onChange={(e) => handleInputChange('utility_name', e.target.value)}
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                       placeholder={form.utility_type === 'OTHER' ? "Enter utility name (required)" : "e.g., Electricity, Water, Internet"}
                       required={form.utility_type === 'OTHER'}
@@ -368,7 +433,7 @@ export default function NewUtilityPage() {
                       type="text"
                       id="provider_name"
                       value={form.provider_name}
-                      onChange={(e) => setForm(prev => ({ ...prev, provider_name: e.target.value }))}
+                      onChange={(e) => handleInputChange('provider_name', e.target.value)}
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                       placeholder="e.g., PG&E, Comcast, Verizon"
                     />
@@ -383,7 +448,7 @@ export default function NewUtilityPage() {
                       type="text"
                       id="account_number"
                       value={form.account_number}
-                      onChange={(e) => setForm(prev => ({ ...prev, account_number: e.target.value }))}
+                      onChange={(e) => handleInputChange('account_number', e.target.value)}
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                       placeholder="Utility account number"
                     />
@@ -397,7 +462,7 @@ export default function NewUtilityPage() {
                     <select
                       id="billing_frequency"
                       value={form.billing_frequency}
-                      onChange={(e) => setForm(prev => ({ ...prev, billing_frequency: e.target.value }))}
+                      onChange={(e) => handleInputChange('billing_frequency', e.target.value)}
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                     >
                       {BILLING_FREQUENCIES.map((freq) => (
@@ -422,7 +487,7 @@ export default function NewUtilityPage() {
                         step="0.01"
                         id="base_rate"
                         value={form.base_rate}
-                        onChange={(e) => setForm(prev => ({ ...prev, base_rate: e.target.value }))}
+                        onChange={(e) => handleInputChange('base_rate', e.target.value)}
                         className="block w-full pl-7 pr-12 border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                         placeholder="0.00"
                       />
@@ -437,11 +502,11 @@ export default function NewUtilityPage() {
                     <select
                       id="unit_of_measurement"
                       value={form.unit_of_measurement}
-                      onChange={(e) => setForm(prev => ({ ...prev, unit_of_measurement: e.target.value }))}
+                      onChange={(e) => handleInputChange('unit_of_measurement', e.target.value)}
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                     >
                       <option value="">Select unit</option>
-                      {UNIT_OF_MEASUREMENT_OPTIONS[form.utility_type as keyof typeof UNIT_OF_MEASUREMENT_OPTIONS]?.map((unit) => (
+                      {UNIT_OF_MEASUREMENT_OPTIONS[form.utility_type]?.map((unit) => (
                         <option key={unit} value={unit}>
                           {unit}
                         </option>
@@ -460,7 +525,7 @@ export default function NewUtilityPage() {
                         step="0.01"
                         id="late_fee_percentage"
                         value={form.late_fee_percentage}
-                        onChange={(e) => setForm(prev => ({ ...prev, late_fee_percentage: e.target.value }))}
+                        onChange={(e) => handleInputChange('late_fee_percentage', e.target.value)}
                         className="block w-full pr-12 border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                         placeholder="5.00"
                       />
@@ -479,7 +544,7 @@ export default function NewUtilityPage() {
                       type="number"
                       id="grace_period_days"
                       value={form.grace_period_days}
-                      onChange={(e) => setForm(prev => ({ ...prev, grace_period_days: e.target.value }))}
+                      onChange={(e) => handleInputChange('grace_period_days', e.target.value)}
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                       placeholder="5"
                     />
@@ -492,7 +557,7 @@ export default function NewUtilityPage() {
                         id="is_included_in_rent"
                         type="checkbox"
                         checked={form.is_included_in_rent}
-                        onChange={(e) => setForm(prev => ({ ...prev, is_included_in_rent: e.target.checked }))}
+                        onChange={(e) => handleInputChange('is_included_in_rent', e.target.checked)}
                         className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
                       />
                       <label htmlFor="is_included_in_rent" className="ml-2 block text-sm text-gray-900">
@@ -505,7 +570,7 @@ export default function NewUtilityPage() {
                         id="is_submetered"
                         type="checkbox"
                         checked={form.is_submetered}
-                        onChange={(e) => setForm(prev => ({ ...prev, is_submetered: e.target.checked }))}
+                        onChange={(e) => handleInputChange('is_submetered', e.target.checked)}
                         className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
                       />
                       <label htmlFor="is_submetered" className="ml-2 block text-sm text-gray-900">
@@ -523,7 +588,7 @@ export default function NewUtilityPage() {
                       id="notes"
                       rows={3}
                       value={form.notes}
-                      onChange={(e) => setForm(prev => ({ ...prev, notes: e.target.value }))}
+                      onChange={(e) => handleInputChange('notes', e.target.value)}
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                       placeholder="Additional notes about this utility service..."
                     />
@@ -546,7 +611,7 @@ export default function NewUtilityPage() {
                 disabled={isSubmitting}
                 className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSubmitting ? 'Creating...' : 'Create Utility'}
+                {isSubmitting ? 'Updating...' : 'Update Utility'}
               </button>
             </div>
           </form>

@@ -125,16 +125,26 @@ export default function TenantUtilitiesPage() {
   const fetchData = async () => {
     try {
       setIsLoading(true)
+      setError('') // Clear any previous errors
       
       // Get tenant's utilities and bills
-      const tenantUtilities = await utilities.getByTenant(user?.tenant_id || '')
-      const tenantBills = await utilityBills.getByTenant(user?.tenant_id || '')
+      const tenantUtilities = await utilities.getByTenant(user?.id || '')
+      const tenantBills = await utilityBills.getByTenant(user?.id || '')
       
-      setUtilitiesList(tenantUtilities)
-      setUtilityBillsList(tenantBills)
+      setUtilitiesList(tenantUtilities || [])
+      setUtilityBillsList(tenantBills || [])
     } catch (err) {
-      setError('Failed to load utilities data')
+      // Only show error for actual connection/database issues
       console.error('Error fetching utilities:', err)
+      if (err instanceof Error && (
+        err.message.includes('network') || 
+        err.message.includes('connection') || 
+        err.message.includes('timeout') ||
+        err.message.includes('unauthorized') ||
+        err.message.includes('permission')
+      )) {
+        setError('Failed to load utilities data. Please check your connection and try again.')
+      }
     } finally {
       setIsLoading(false)
     }
@@ -147,14 +157,18 @@ export default function TenantUtilitiesPage() {
       if (!bill) return
 
       const paymentData = {
-        tenant_id: user?.tenant_id || '',
+        tenant_id: user?.id || '',
         unit_id: bill.unit.id,
-        landlord_id: user?.landlord_id || '',
+        property_id: bill.unit.property.id,
+        landlord_id: '', // Will need to get this from the bill or utility data
         amount: bill.total_amount,
         type: 'UTILITY_FEE' as const,
         status: 'PENDING' as const,
         due_date: bill.due_date,
         description: `${bill.utility.utility_name} bill for ${bill.billing_period_start} - ${bill.billing_period_end}`,
+        late_fee: null,
+        paid_date: null,
+        stripe_payment_id: null
       }
 
       await payments.create(paymentData)

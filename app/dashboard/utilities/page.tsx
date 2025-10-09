@@ -139,15 +139,25 @@ export default function UtilitiesPage() {
   const fetchData = async () => {
     try {
       setIsLoading(true)
+      setError('') // Clear any previous errors
       const [utilitiesData, billsData] = await Promise.all([
         utilities.getAll(),
         utilityBills.getAll()
       ])
-      setUtilitiesList(utilitiesData)
-      setUtilityBillsList(billsData)
+      setUtilitiesList(utilitiesData || [])
+      setUtilityBillsList(billsData || [])
     } catch (err) {
-      setError('Failed to load utilities data')
+      // Only show error for actual connection/database issues
       console.error('Error fetching utilities:', err)
+      if (err instanceof Error && (
+        err.message.includes('network') || 
+        err.message.includes('connection') || 
+        err.message.includes('timeout') ||
+        err.message.includes('unauthorized') ||
+        err.message.includes('permission')
+      )) {
+        setError('Failed to load utilities data. Please check your connection and try again.')
+      }
     } finally {
       setIsLoading(false)
     }
