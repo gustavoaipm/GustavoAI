@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { 
   UserGroupIcon,
@@ -24,6 +24,14 @@ interface TenantInvitation {
 }
 
 export default function TenantSignupPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50">Loading tenant signup...</div>}>
+      <TenantSignupPageContent />
+    </Suspense>
+  )
+}
+
+function TenantSignupPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const token = searchParams.get('token')

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { tenantInvitations } from '@/lib/supabase-utils'
 import { auth } from '@/lib/supabase-utils'
@@ -43,6 +43,14 @@ interface InvitationData {
 }
 
 export default function TenantVerifyPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50">Loading verification...</div>}>
+      <TenantVerifyPageContent />
+    </Suspense>
+  )
+}
+
+function TenantVerifyPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
