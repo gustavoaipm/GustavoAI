@@ -4,6 +4,7 @@ import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
 import { NotificationProvider } from '@/lib/notification-context'
 import NotificationContainer from '@/app/components/NotificationContainer'
+import ComingSoon from '@/app/components/ComingSoon'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -17,6 +18,8 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const isComingSoon = process.env.NEXT_PUBLIC_COMING_SOON === 'true'
+
   return (
     <html lang="en">
       <head>
@@ -40,14 +43,16 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className}>
-        <AuthProvider>
-          <NotificationProvider>
-            <div className="min-h-screen bg-gray-50">
-              {children}
-            </div>
-            <NotificationContainer />
-          </NotificationProvider>
-        </AuthProvider>
+        {isComingSoon ? (
+          <ComingSoon />
+        ) : (
+          <AuthProvider>
+            <NotificationProvider>
+              <div className="min-h-screen bg-gray-50">{children}</div>
+              <NotificationContainer />
+            </NotificationProvider>
+          </AuthProvider>
+        )}
       </body>
     </html>
   )
