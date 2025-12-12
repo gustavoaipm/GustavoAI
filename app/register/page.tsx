@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, Controller, type SubmitHandler } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useRouter } from 'next/navigation'
@@ -28,7 +28,7 @@ const registerSchema = z.object({
   firstName: z.string().min(2, 'First name must be at least 2 characters').max(50, 'First name must be less than 50 characters'),
   lastName: z.string().min(2, 'Last name must be at least 2 characters').max(50, 'Last name must be less than 50 characters'),
   phone: z.string().optional(),
-  role: z.enum(['LANDLORD', 'TENANT']).default('LANDLORD'),
+  role: z.enum(['LANDLORD', 'TENANT']),
   acceptTerms: z.boolean().refine((val) => val === true, {
     message: 'You must accept the terms of service',
   }),
@@ -62,6 +62,10 @@ export default function RegisterPage() {
     control,
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      role: 'LANDLORD',
+      acceptTerms: false,
+    },
   })
 
   const watchedPassword = watch('password', '')
@@ -81,7 +85,7 @@ export default function RegisterPage() {
     checkPasswordStrength(watchedPassword)
   }, [watchedPassword])
 
-  const onSubmit = async (data: RegisterFormData) => {
+  const onSubmit: SubmitHandler<RegisterFormData> = async (data) => {
     setIsLoading(true)
     setError('')
     setSuccess('')
