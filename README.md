@@ -134,6 +134,7 @@ GustavoAI/
 
 ### Frontend (.env.local)
 ```env
+NEXT_PUBLIC_COMING_SOON=false
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
@@ -142,6 +143,16 @@ NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
 NEXT_PUBLIC_OPENAI_API_KEY=your-openai-api-key
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your-stripe-publishable-key
 ```
+
+### Coming Soon mode (Vercel)
+- Set `NEXT_PUBLIC_COMING_SOON` to `true` to show the Coming Soon page instead of the full app.
+
+To enable in production:
+1. Vercel Dashboard → Project → Settings → Environment Variables
+2. Add `NEXT_PUBLIC_COMING_SOON=true`
+
+To disable and show the full app again:
+1. Change `NEXT_PUBLIC_COMING_SOON=false` (or remove the variable)
 
 ## 📊 Database Schema
 
