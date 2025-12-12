@@ -1,4 +1,7 @@
+'use client'
+
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { 
   CalendarIcon,
   ClockIcon,
@@ -7,91 +10,53 @@ import {
   ArrowRightIcon,
   MagnifyingGlassIcon
 } from '@heroicons/react/24/outline'
-
-const featuredPost = {
-  title: 'The Future of Property Management: How AI is Transforming the Industry',
-  excerpt: 'Discover how artificial intelligence is revolutionizing property management, from automated rent collection to predictive maintenance and intelligent tenant screening.',
-  author: 'Sarah Johnson',
-  date: '2025-01-08',
-  readTime: '8 min read',
-  category: 'Industry Insights',
-  image: '/blog/ai-future.jpg',
-  slug: 'future-of-property-management-ai'
-}
-
-const blogPosts = [
-  {
-    title: '10 Essential Tips for First-Time Property Investors',
-    excerpt: 'Starting your property investment journey? Learn the fundamental strategies and best practices that every new investor should know.',
-    author: 'Michael Chen',
-    date: '2025-01-06',
-    readTime: '6 min read',
-    category: 'Investment Tips',
-    image: '/blog/first-time-investors.jpg',
-    slug: 'first-time-property-investors-tips'
-  },
-  {
-    title: 'Maximizing Rental Income: Strategies That Actually Work',
-    excerpt: 'Explore proven strategies to increase your rental income while maintaining tenant satisfaction and property value.',
-    author: 'Emily Rodriguez',
-    date: '2025-01-04',
-    readTime: '7 min read',
-    category: 'Revenue Optimization',
-    image: '/blog/rental-income.jpg',
-    slug: 'maximizing-rental-income-strategies'
-  },
-  {
-    title: 'Building Strong Tenant Relationships: A Complete Guide',
-    excerpt: 'Learn how to foster positive relationships with your tenants, leading to longer tenancies and better property care.',
-    author: 'David Kim',
-    date: '2025-01-02',
-    readTime: '5 min read',
-    category: 'Tenant Management',
-    image: '/blog/tenant-relationships.jpg',
-    slug: 'building-strong-tenant-relationships'
-  },
-  {
-    title: 'Property Maintenance: Preventive vs. Reactive Approaches',
-    excerpt: 'Compare preventive and reactive maintenance strategies to find the best approach for your property portfolio.',
-    author: 'Sarah Johnson',
-    date: '2024-12-30',
-    readTime: '9 min read',
-    category: 'Maintenance',
-    image: '/blog/maintenance-approaches.jpg',
-    slug: 'preventive-vs-reactive-maintenance'
-  },
-  {
-    title: 'Digital Transformation in Real Estate: What You Need to Know',
-    excerpt: 'Stay ahead of the curve with insights into the latest digital trends transforming the real estate industry.',
-    author: 'Michael Chen',
-    date: '2024-12-28',
-    readTime: '6 min read',
-    category: 'Technology',
-    image: '/blog/digital-transformation.jpg',
-    slug: 'digital-transformation-real-estate'
-  },
-  {
-    title: 'Tax Strategies for Property Investors: 2025 Edition',
-    excerpt: 'Navigate the latest tax regulations and discover strategies to optimize your property investment returns.',
-    author: 'Emily Rodriguez',
-    date: '2024-12-26',
-    readTime: '8 min read',
-    category: 'Tax & Finance',
-    image: '/blog/tax-strategies.jpg',
-    slug: 'tax-strategies-property-investors-2025'
-  }
-]
-
-const categories = [
-  { name: 'Industry Insights', count: 12, color: 'bg-blue-100 text-blue-800' },
-  { name: 'Investment Tips', count: 8, color: 'bg-green-100 text-green-800' },
-  { name: 'Tenant Management', count: 15, color: 'bg-purple-100 text-purple-800' },
-  { name: 'Maintenance', count: 10, color: 'bg-orange-100 text-orange-800' },
-  { name: 'Technology', count: 6, color: 'bg-indigo-100 text-indigo-800' },
-  { name: 'Tax & Finance', count: 9, color: 'bg-red-100 text-red-800' }
-]
+import { blogUtils, BlogArticle, BlogCategory } from '@/lib/blog-utils'
 
 export default function BlogPage() {
+  const [featuredPost, setFeaturedPost] = useState<BlogArticle | null>(null)
+  const [blogPosts, setBlogPosts] = useState<BlogArticle[]>([])
+  const [categories, setCategories] = useState<BlogCategory[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchBlogData = async () => {
+      try {
+        setLoading(true)
+        
+        // Fetch featured article
+        const featured = await blogUtils.getFeaturedArticle()
+        setFeaturedPost(featured)
+
+        // Fetch all articles (excluding featured)
+        const allArticles = await blogUtils.getAllArticles()
+        const nonFeaturedArticles = allArticles.filter(article => !article.featured)
+        setBlogPosts(nonFeaturedArticles)
+
+        // Fetch categories
+        const categoriesData = await blogUtils.getCategories()
+        setCategories(categoriesData)
+
+      } catch (error) {
+        console.error('Error fetching blog data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchBlogData()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading blog...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -151,47 +116,53 @@ export default function BlogPage() {
       </div>
 
       {/* Featured Post */}
-      <div className="py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-8">Featured Article</h2>
-          
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-            <div className="grid grid-cols-1 lg:grid-cols-2">
-              <div className="bg-gray-200 h-64 lg:h-full flex items-center justify-center">
-                <div className="text-center text-gray-500">
-                  <div className="w-16 h-16 bg-gray-300 rounded-lg mx-auto mb-4"></div>
-                  <p>Featured Image</p>
+      {featuredPost && (
+        <div className="py-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-8">Featured Article</h2>
+            
+            <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+              <div className="grid grid-cols-1 lg:grid-cols-2">
+                <div className="bg-gray-200 h-64 lg:h-full flex items-center justify-center">
+                  <div className="text-center text-gray-500">
+                    <div className="w-16 h-16 bg-gray-300 rounded-lg mx-auto mb-4"></div>
+                    <p>Featured Image</p>
+                  </div>
                 </div>
-              </div>
-              <div className="p-8">
-                <div className="flex items-center space-x-2 mb-4">
-                  <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
-                    {featuredPost.category}
-                  </span>
-                </div>
+                <div className="p-8">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <span className={`px-3 py-1 text-sm font-medium rounded-full ${
+                      featuredPost.category === 'Technology' ? 'bg-indigo-100 text-indigo-800' :
+                      featuredPost.category === 'Industry Insights' ? 'bg-blue-100 text-blue-800' :
+                      featuredPost.category === 'Investment Tips' ? 'bg-green-100 text-green-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {featuredPost.category}
+                    </span>
+                  </div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-4">
                   <Link href={`/blog/${featuredPost.slug}`} className="hover:text-primary-600">
                     {featuredPost.title}
                   </Link>
                 </h3>
-                <p className="text-gray-600 mb-6">
-                  {featuredPost.excerpt}
-                </p>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4 text-sm text-gray-500">
-                    <div className="flex items-center space-x-1">
-                      <UserIcon className="w-4 h-4" />
-                      <span>{featuredPost.author}</span>
+                  <p className="text-gray-600 mb-6">
+                    {featuredPost.excerpt}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4 text-sm text-gray-500">
+                      <div className="flex items-center space-x-1">
+                        <UserIcon className="w-4 h-4" />
+                        <span>{featuredPost.author}</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <CalendarIcon className="w-4 h-4" />
+                        <span>{new Date(featuredPost.published_at).toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <ClockIcon className="w-4 h-4" />
+                        <span>{featuredPost.read_time}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-1">
-                      <CalendarIcon className="w-4 h-4" />
-                      <span>{new Date(featuredPost.date).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <ClockIcon className="w-4 h-4" />
-                      <span>{featuredPost.readTime}</span>
-                    </div>
-                  </div>
                   <Link 
                     href={`/blog/${featuredPost.slug}`}
                     className="text-primary-600 hover:text-primary-700 font-medium flex items-center space-x-1"
@@ -199,12 +170,13 @@ export default function BlogPage() {
                     <span>Read more</span>
                     <ArrowRightIcon className="w-4 h-4" />
                   </Link>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Categories */}
       <div className="py-16 bg-white">
@@ -213,16 +185,15 @@ export default function BlogPage() {
           
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {categories.map((category) => (
-              <Link
+              <div
                 key={category.name}
-                href={`/blog/category/${category.name.toLowerCase().replace(/\s+/g, '-')}`}
                 className="group"
               >
-                <div className={`px-4 py-3 rounded-lg text-center hover:shadow-md transition-shadow ${category.color}`}>
+                <div className={`px-4 py-3 rounded-lg text-center transition-shadow ${category.color} ${category.count > 0 ? 'hover:shadow-md cursor-pointer' : 'opacity-50'}`}>
                   <div className="font-medium mb-1">{category.name}</div>
                   <div className="text-sm opacity-75">{category.count} articles</div>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         </div>
@@ -233,60 +204,71 @@ export default function BlogPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-8">Latest Articles</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {blogPosts.map((post) => (
-              <article key={post.slug} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-                <div className="bg-gray-200 h-48 flex items-center justify-center">
-                  <div className="text-center text-gray-500">
-                    <div className="w-12 h-12 bg-gray-300 rounded-lg mx-auto mb-2"></div>
-                    <p className="text-sm">Article Image</p>
-                  </div>
-                </div>
-                <div className="p-6">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
-                      {post.category}
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                    <Link href={`/blog/${post.slug}`} className="hover:text-primary-600">
-                      {post.title}
-                    </Link>
-                  </h3>
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                    {post.excerpt}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3 text-xs text-gray-500">
-                      <div className="flex items-center space-x-1">
-                        <UserIcon className="w-3 h-3" />
-                        <span>{post.author}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <ClockIcon className="w-3 h-3" />
-                        <span>{post.readTime}</span>
-                      </div>
+          {blogPosts.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {blogPosts.map((post) => (
+                <article key={post.slug} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                  <div className="bg-gray-200 h-48 flex items-center justify-center">
+                    <div className="text-center text-gray-500">
+                      <div className="w-12 h-12 bg-gray-300 rounded-lg mx-auto mb-2"></div>
+                      <p className="text-sm">Article Image</p>
                     </div>
+                  </div>
+                  <div className="p-6">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <span className={`px-2 py-1 text-xs font-medium rounded ${
+                        post.category === 'Industry Insights' ? 'bg-blue-100 text-blue-700' :
+                        post.category === 'Investment Tips' ? 'bg-green-100 text-green-700' :
+                        post.category === 'Technology' ? 'bg-indigo-100 text-indigo-700' :
+                        post.category === 'Tenant Management' ? 'bg-purple-100 text-purple-700' :
+                        post.category === 'Maintenance' ? 'bg-orange-100 text-orange-700' :
+                        post.category === 'Tax & Finance' ? 'bg-red-100 text-red-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {post.category}
+                      </span>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                      <Link href={`/blog/${post.slug}`} className="hover:text-primary-600">
+                        {post.title}
+                      </Link>
+                    </h3>
+                    <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                      {post.excerpt}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3 text-xs text-gray-500">
+                        <div className="flex items-center space-x-1">
+                          <UserIcon className="w-3 h-3" />
+                          <span>{post.author}</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <ClockIcon className="w-3 h-3" />
+                          <span>{post.read_time}</span>
+                        </div>
+                      </div>
                     <Link 
                       href={`/blog/${post.slug}`}
                       className="text-primary-600 hover:text-primary-700 text-sm font-medium"
                     >
                       Read more →
                     </Link>
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
-          </div>
-          
-          <div className="text-center mt-12">
-            <Link 
-              href="/blog/all"
-              className="bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200"
-            >
-              View All Articles
-            </Link>
-          </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No articles yet</h3>
+              <p className="text-gray-500">Check back soon for our latest insights and tips!</p>
+            </div>
+          )}
         </div>
       </div>
 

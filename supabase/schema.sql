@@ -13,6 +13,8 @@ CREATE TYPE maintenance_type AS ENUM ('CLEANING', 'REPAIR', 'INSPECTION', 'PEST_
 CREATE TYPE priority AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'URGENT');
 CREATE TYPE maintenance_status AS ENUM ('REQUESTED', 'SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');
 CREATE TYPE notification_type AS ENUM ('PAYMENT_DUE', 'PAYMENT_OVERDUE', 'MAINTENANCE_SCHEDULED', 'MAINTENANCE_COMPLETED', 'LEASE_EXPIRING', 'GENERAL');
+CREATE TYPE blog_category AS ENUM ('Industry Insights', 'Investment Tips', 'Tenant Management', 'Maintenance', 'Technology', 'Tax & Finance');
+CREATE TYPE utility_type AS ENUM ('ELECTRICITY', 'GAS', 'WATER', 'SEWER', 'TRASH', 'INTERNET', 'CABLE', 'OTHER');
 
 -- Create users table (extends Supabase auth.users)
 CREATE TABLE public.users (
@@ -28,7 +30,7 @@ CREATE TABLE public.users (
 
 -- Create properties table
 CREATE TABLE public.properties (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     name TEXT NOT NULL,
     address TEXT NOT NULL,
     city TEXT NOT NULL,
@@ -46,7 +48,7 @@ CREATE TABLE public.properties (
 
 -- Create units table
 CREATE TABLE public.units (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     unit_number TEXT NOT NULL,
     bedrooms INTEGER NOT NULL,
     bathrooms INTEGER NOT NULL,
@@ -64,7 +66,7 @@ CREATE TABLE public.units (
 
 -- Create tenants table
 CREATE TABLE public.tenants (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
     email TEXT UNIQUE NOT NULL,
     first_name TEXT NOT NULL,
@@ -87,7 +89,7 @@ CREATE TABLE public.tenants (
 
 -- Create payments table
 CREATE TABLE public.payments (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     amount DECIMAL(10,2) NOT NULL,
     type payment_type NOT NULL,
     status payment_status DEFAULT 'PENDING',
@@ -105,7 +107,7 @@ CREATE TABLE public.payments (
 
 -- Create maintenance table
 CREATE TABLE public.maintenance (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT NOT NULL,
     type maintenance_type NOT NULL,
@@ -129,7 +131,7 @@ CREATE TABLE public.maintenance (
 
 -- Create notifications table
 CREATE TABLE public.notifications (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     title TEXT NOT NULL,
     message TEXT NOT NULL,
     type notification_type NOT NULL,
@@ -140,7 +142,7 @@ CREATE TABLE public.notifications (
 
 -- Create vendors table
 CREATE TABLE public.vendors (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     name TEXT NOT NULL,
     email TEXT,
     phone TEXT NOT NULL,
@@ -157,7 +159,7 @@ CREATE TABLE public.vendors (
 
 -- Create tenant invitations table
 CREATE TABLE public.tenant_invitations (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     email TEXT NOT NULL,
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
@@ -175,6 +177,67 @@ CREATE TABLE public.tenant_invitations (
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
     is_verified BOOLEAN DEFAULT FALSE,
     verified_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create blog_articles table
+CREATE TABLE public.blog_articles (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    title TEXT NOT NULL,
+    slug TEXT UNIQUE NOT NULL,
+    excerpt TEXT NOT NULL,
+    content TEXT NOT NULL, -- Store full article content as plain text
+    author TEXT NOT NULL DEFAULT 'GustavoAI Team',
+    category blog_category NOT NULL,
+    featured BOOLEAN DEFAULT FALSE,
+    published BOOLEAN DEFAULT TRUE,
+    published_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    read_time TEXT NOT NULL DEFAULT '5 min read',
+    image_url TEXT,
+    meta_description TEXT,
+    tags TEXT[] DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create utilities table
+CREATE TABLE public.utilities (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    utility_name TEXT NOT NULL,
+    utility_type utility_type NOT NULL,
+    provider_name TEXT NOT NULL,
+    provider_contact TEXT,
+    account_number TEXT,
+    unit_of_measurement TEXT NOT NULL, -- e.g., 'kWh', 'therms', 'gallons'
+    rate_per_unit DECIMAL(10,4) DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
+    unit_id UUID REFERENCES public.units(id) ON DELETE CASCADE NOT NULL,
+    tenant_id UUID REFERENCES public.tenants(id) ON DELETE SET NULL,
+    landlord_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create utility_bills table
+CREATE TABLE public.utility_bills (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    utility_id UUID REFERENCES public.utilities(id) ON DELETE CASCADE NOT NULL,
+    unit_id UUID REFERENCES public.units(id) ON DELETE CASCADE NOT NULL,
+    tenant_id UUID REFERENCES public.tenants(id) ON DELETE SET NULL,
+    billing_period_start DATE NOT NULL,
+    billing_period_end DATE NOT NULL,
+    usage_amount DECIMAL(12,4) NOT NULL,
+    rate_per_unit DECIMAL(10,4) NOT NULL,
+    base_charge DECIMAL(10,2) DEFAULT 0,
+    taxes DECIMAL(10,2) DEFAULT 0,
+    fees DECIMAL(10,2) DEFAULT 0,
+    total_amount DECIMAL(10,2) NOT NULL,
+    due_date DATE NOT NULL,
+    paid_date DATE,
+    is_paid BOOLEAN DEFAULT FALSE,
+    notes TEXT,
+    bill_image_url TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -198,6 +261,20 @@ CREATE INDEX idx_notifications_is_read ON public.notifications(is_read);
 CREATE INDEX idx_tenant_invitations_email ON public.tenant_invitations(email);
 CREATE INDEX idx_tenant_invitations_token ON public.tenant_invitations(verification_token);
 CREATE INDEX idx_tenant_invitations_landlord_id ON public.tenant_invitations(landlord_id);
+CREATE INDEX idx_blog_articles_slug ON public.blog_articles(slug);
+CREATE INDEX idx_blog_articles_published ON public.blog_articles(published);
+CREATE INDEX idx_blog_articles_category ON public.blog_articles(category);
+CREATE INDEX idx_blog_articles_featured ON public.blog_articles(featured);
+CREATE INDEX idx_blog_articles_published_at ON public.blog_articles(published_at DESC);
+CREATE INDEX idx_utilities_unit_id ON public.utilities(unit_id);
+CREATE INDEX idx_utilities_tenant_id ON public.utilities(tenant_id);
+CREATE INDEX idx_utilities_landlord_id ON public.utilities(landlord_id);
+CREATE INDEX idx_utilities_type ON public.utilities(utility_type);
+CREATE INDEX idx_utility_bills_utility_id ON public.utility_bills(utility_id);
+CREATE INDEX idx_utility_bills_unit_id ON public.utility_bills(unit_id);
+CREATE INDEX idx_utility_bills_tenant_id ON public.utility_bills(tenant_id);
+CREATE INDEX idx_utility_bills_due_date ON public.utility_bills(due_date);
+CREATE INDEX idx_utility_bills_billing_period ON public.utility_bills(billing_period_start, billing_period_end);
 
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -217,6 +294,9 @@ CREATE TRIGGER update_payments_updated_at BEFORE UPDATE ON public.payments FOR E
 CREATE TRIGGER update_maintenance_updated_at BEFORE UPDATE ON public.maintenance FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_vendors_updated_at BEFORE UPDATE ON public.vendors FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_tenant_invitations_updated_at BEFORE UPDATE ON public.tenant_invitations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_blog_articles_updated_at BEFORE UPDATE ON public.blog_articles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_utilities_updated_at BEFORE UPDATE ON public.utilities FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_utility_bills_updated_at BEFORE UPDATE ON public.utility_bills FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Row Level Security (RLS) policies
 
@@ -230,6 +310,9 @@ ALTER TABLE public.maintenance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vendors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tenant_invitations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.blog_articles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.utilities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.utility_bills ENABLE ROW LEVEL SECURITY;
 
 -- Users policies
 CREATE POLICY "Users can view their own profile" ON public.users
@@ -392,6 +475,72 @@ CREATE POLICY "Tenant invitations are deletable by landlord" ON public.tenant_in
 -- Allow tenants to view their own invitation by token (for verification)
 CREATE POLICY "Tenant invitations are viewable by token" ON public.tenant_invitations
     FOR SELECT USING (true); -- This will be filtered by token in the application
+
+-- Blog articles policies
+CREATE POLICY "Blog articles are publicly readable" ON public.blog_articles
+    FOR SELECT USING (published = true);
+
+-- Allow admin users to manage blog articles (you can customize this based on your admin role logic)
+CREATE POLICY "Admins can manage blog articles" ON public.blog_articles
+    FOR ALL USING (true); -- You may want to add proper admin role checking here
+
+-- Utilities policies
+CREATE POLICY "Landlords can view utilities for their units" ON public.utilities
+    FOR SELECT USING (EXISTS (
+        SELECT 1 FROM public.units u 
+        JOIN public.properties p ON u.property_id = p.id 
+        WHERE u.id = utilities.unit_id AND p.owner_id = auth.uid()
+    ));
+
+CREATE POLICY "Landlords can insert utilities for their units" ON public.utilities
+    FOR INSERT WITH CHECK (EXISTS (
+        SELECT 1 FROM public.units u 
+        JOIN public.properties p ON u.property_id = p.id 
+        WHERE u.id = utilities.unit_id AND p.owner_id = auth.uid()
+    ));
+
+CREATE POLICY "Landlords can update utilities for their units" ON public.utilities
+    FOR UPDATE USING (EXISTS (
+        SELECT 1 FROM public.units u 
+        JOIN public.properties p ON u.property_id = p.id 
+        WHERE u.id = utilities.unit_id AND p.owner_id = auth.uid()
+    ));
+
+CREATE POLICY "Landlords can delete utilities for their units" ON public.utilities
+    FOR DELETE USING (EXISTS (
+        SELECT 1 FROM public.units u 
+        JOIN public.properties p ON u.property_id = p.id 
+        WHERE u.id = utilities.unit_id AND p.owner_id = auth.uid()
+    ));
+
+-- Utility bills policies
+CREATE POLICY "Landlords can view utility bills for their units" ON public.utility_bills
+    FOR SELECT USING (EXISTS (
+        SELECT 1 FROM public.units u 
+        JOIN public.properties p ON u.property_id = p.id 
+        WHERE u.id = utility_bills.unit_id AND p.owner_id = auth.uid()
+    ));
+
+CREATE POLICY "Landlords can insert utility bills for their units" ON public.utility_bills
+    FOR INSERT WITH CHECK (EXISTS (
+        SELECT 1 FROM public.units u 
+        JOIN public.properties p ON u.property_id = p.id 
+        WHERE u.id = utility_bills.unit_id AND p.owner_id = auth.uid()
+    ));
+
+CREATE POLICY "Landlords can update utility bills for their units" ON public.utility_bills
+    FOR UPDATE USING (EXISTS (
+        SELECT 1 FROM public.units u 
+        JOIN public.properties p ON u.property_id = p.id 
+        WHERE u.id = utility_bills.unit_id AND p.owner_id = auth.uid()
+    ));
+
+CREATE POLICY "Landlords can delete utility bills for their units" ON public.utility_bills
+    FOR DELETE USING (EXISTS (
+        SELECT 1 FROM public.units u 
+        JOIN public.properties p ON u.property_id = p.id 
+        WHERE u.id = utility_bills.unit_id AND p.owner_id = auth.uid()
+    ));
 
 -- Note: User creation is now handled manually in the API
 -- No trigger needed for automatic public.users creation 
